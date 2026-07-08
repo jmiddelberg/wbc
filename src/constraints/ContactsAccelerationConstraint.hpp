@@ -13,8 +13,8 @@ class ContactsAccelerationConstraint : public Constraint {
 public:
 
     /** @brief Default constructor */
-    explicit ContactsAccelerationConstraint(bool _reduced = false, uint dim_contact = 3) : 
-        Constraint(Constraint::equality), reduced(_reduced), dim_contact(dim_contact) { }
+    explicit ContactsAccelerationConstraint(bool _reduced = false, uint dim_contact = 3, bool use_spatial_acc_bias = true) : 
+        Constraint(Constraint::equality), reduced(_reduced), dim_contact(dim_contact), use_spatial_acc_bias(use_spatial_acc_bias) { }
 
     virtual ~ContactsAccelerationConstraint() = default;
 
@@ -24,6 +24,7 @@ private:
 
     bool reduced; // if torques are removed from the qp formulation or not
     uint dim_contact;
+    bool use_spatial_acc_bias;
 
 };
 

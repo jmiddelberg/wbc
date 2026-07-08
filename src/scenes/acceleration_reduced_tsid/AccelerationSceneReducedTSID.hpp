@@ -48,6 +48,7 @@ protected:
     bool configured;
     types::JointCommand solver_output_joints;
     uint dim_contact;
+    bool use_spatial_acc_bias;
 
     bool contactsHaveChanged(const std::vector<types::Contact>& old_contacts, const std::vector<types::Contact>& new_contacts){
         if(old_contacts.size() != new_contacts.size())
@@ -60,7 +61,7 @@ protected:
     }
 
 public:
-    AccelerationSceneReducedTSID(RobotModelPtr robot_model, QPSolverPtr solver, const double dt, uint dim_contact = 3);
+    AccelerationSceneReducedTSID(RobotModelPtr robot_model, QPSolverPtr solver, const double dt, uint dim_contact = 3, bool use_spatial_acc_bias = true);
     virtual ~AccelerationSceneReducedTSID(){}
 
     /**

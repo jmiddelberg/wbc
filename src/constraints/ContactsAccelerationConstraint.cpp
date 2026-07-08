@@ -27,11 +27,14 @@ namespace wbc{
         uint row_idx = 0;
         for(uint i = 0; i < contacts.size(); i++){
             if(contacts[i].active){
-                const types::SpatialAcceleration& a = robot_model->spatialAccelerationBias(contacts[i].frame_id);
-                b_vec.segment(row_idx*dim_contact, 3) = -a.linear; // use only linear part of spatial acceleration bias
-                if(dim_contact == 6)
-                    b_vec.segment(row_idx*dim_contact+3, 3) = -a.angular;
+                if(use_spatial_acc_bias){
+                    const types::SpatialAcceleration& a = robot_model->spatialAccelerationBias(contacts[i].frame_id);
+                    b_vec.segment(row_idx*dim_contact, 3) = -a.linear; // use only linear part of spatial acceleration bias
+                    if(dim_contact == 6)
+                        b_vec.segment(row_idx*dim_contact+3, 3) = -a.angular;
+                }
                 A_mtx.block(row_idx*dim_contact,  0, dim_contact, nj) = robot_model->spaceJacobian(contacts[i].frame_id).topRows(dim_contact); // use only top 3 rows of Jacobian (only linear part)
+
                 row_idx++;
             }
         }

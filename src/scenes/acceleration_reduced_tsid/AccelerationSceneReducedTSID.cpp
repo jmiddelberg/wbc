@@ -13,10 +13,11 @@ namespace wbc {
 
 SceneRegistry<AccelerationSceneReducedTSID> AccelerationSceneReducedTSID::reg("acceleration_reduced_tsid");
 
-AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_model, QPSolverPtr solver, const double dt, uint dim_contact) :
+AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_model, QPSolverPtr solver, const double dt, uint dim_contact, bool use_spatial_acc_bias) :
     Scene(robot_model, solver, dt),
     configured(false),
-    dim_contact(dim_contact){
+    dim_contact(dim_contact),
+    use_spatial_acc_bias(use_spatial_acc_bias){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
@@ -25,7 +26,7 @@ AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_m
     // for now manually adding constraint to this scene (an option would be to take them during configuration)
     if(robot_model->hasFloatingBase())
         constraints.push_back(std::make_shared<RigidbodyDynamicsConstraint>(reduced,dim_contact));
-    constraints.push_back(std::make_shared<ContactsAccelerationConstraint>(reduced, dim_contact));
+    constraints.push_back(std::make_shared<ContactsAccelerationConstraint>(reduced, dim_contact, use_spatial_acc_bias));
     constraints.push_back(std::make_shared<JointLimitsAccelerationConstraint>(dt, reduced, dim_contact));
     constraints.push_back(std::make_shared<EffortLimitsAccelerationConstraint>(dim_contact));
     if(dim_contact == 3)

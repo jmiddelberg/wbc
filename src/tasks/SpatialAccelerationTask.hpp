@@ -13,11 +13,13 @@ class SpatialAccelerationTask : public Task{
 protected:
     Eigen::MatrixXd rot_mat;
     std::string tip_frame;
+    bool use_spatial_acc_bias;
     
 public:
     SpatialAccelerationTask(TaskConfig config,
                               RobotModelPtr robot_model,
-                              const std::string &tip_frame);
+                              const std::string &tip_frame,
+                              bool use_spatial_acc_bias = true);
     virtual ~SpatialAccelerationTask() = default;
 
     /**
