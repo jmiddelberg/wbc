@@ -19,7 +19,9 @@ AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_m
     dim_contact(dim_contact),
     use_spatial_acc_bias(use_spatial_acc_bias),
     acceleration_regularization(1e-8),
-    wrench_regularization(1e-12){
+    wrench_regularization(1e-12),
+    acceleration_delta_weight(0),
+    wrench_delta_weight(0){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
@@ -152,6 +154,17 @@ const HierarchicalQP& AccelerationSceneReducedTSID::update(){
     }
     qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_regularization;
     qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_regularization;
+
+    // Penalize the difference to the previous solver output: w*||x - x_prev||^2, which smoothes the solution over time.
+    // Only applied if a previous solution of matching size exists and the contact configuration has not changed, since
+    // the meaning of the wrench variables changes with the contacts
+    if((acceleration_delta_weight > 0 || wrench_delta_weight > 0) &&
+       solver_output.size() == qp.nq && !contactsHaveChanged(contacts, robot_model->getContacts())){
+        qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_delta_weight;
+        qp.g.segment(0,nj) -= acceleration_delta_weight * solver_output.segment(0,nj);
+        qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_delta_weight;
+        qp.g.segment(nj,ncp*dim_contact) -= wrench_delta_weight * solver_output.segment(nj,ncp*dim_contact);
+    }
     return hqp;
 }
 

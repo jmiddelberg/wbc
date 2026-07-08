@@ -95,3 +95,85 @@ BOOST_AUTO_TEST_CASE(simple_test){
 
     BOOST_CHECK((eq_motion_left - eq_motion_right).cwiseAbs().maxCoeff() < 1e-3);
 }
+
+BOOST_AUTO_TEST_CASE(delta_penalty){
+
+    /**
+     * Check the penalty on the difference between consecutive solver outputs: A scene with delta penalty should show a
+     * smaller jump between consecutive solutions than a scene without, when the task reference changes abruptly
+     */
+
+    // Configure Robot model
+    shared_ptr<RobotModelPinocchio> robot_model = make_shared<RobotModelPinocchio>();
+    RobotModelConfig config;
+    config.file_or_string = "../../../../../models/rh5/urdf/rh5_legs.urdf";
+    config.floating_base = true;
+    config.contact_points = {types::Contact("FL_SupportCenter",1,0.6,0.2,0.08), types::Contact("FR_SupportCenter",1,0.6,0.2,0.08)};
+    BOOST_CHECK_EQUAL(robot_model->configure(config), true);
+
+    types::JointState joint_state;
+    joint_state.resize(robot_model->na());
+    joint_state.position << 0,0,-0.35,0.64,0,-0.27,  0,0,-0.35,0.64,0,-0.27;
+    joint_state.velocity.setZero();
+    joint_state.acceleration.setZero();
+
+    types::RigidBodyState rbs;
+    rbs.pose.position = Eigen::Vector3d(-0.175,0,0.876);
+    rbs.pose.orientation.setIdentity();
+    rbs.twist.setZero();
+    rbs.acceleration.setZero();
+
+    robot_model->update(joint_state.position, joint_state.velocity, joint_state.acceleration,
+                        rbs.pose, rbs.twist, rbs.acceleration);
+
+    // Two identical scenes with separate solvers, one with delta penalty
+    auto makeSolver = [](){
+        QPSolverPtr solver = std::make_shared<QPOASESSolver>();
+        dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
+        qpOASES::Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
+        options.printLevel = qpOASES::PL_NONE;
+        dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
+        return solver;
+    };
+
+    SpatialAccelerationTaskPtr cart_task;
+    cart_task = make_shared<SpatialAccelerationTask>(TaskConfig("cart_pos_ctrl",0,Eigen::VectorXd::Ones(6),1),
+                                                     robot_model,
+                                                     "RH5_Root_Link");
+    AccelerationSceneReducedTSID scene_plain(robot_model, makeSolver(), 1e-3);
+    AccelerationSceneReducedTSID scene_smooth(robot_model, makeSolver(), 1e-3);
+    BOOST_CHECK_EQUAL(scene_plain.configure({cart_task}), true);
+    BOOST_CHECK_EQUAL(scene_smooth.configure({cart_task}), true);
+    scene_smooth.setAccelerationDeltaWeight(1e3);
+    scene_smooth.setContactWrenchDeltaWeight(1e3);
+
+    // First reference
+    types::SpatialAcceleration ref;
+    ref.linear = Eigen::Vector3d(0.1,0.2,0.3);
+    ref.angular = Eigen::Vector3d(0.05,-0.1,0.1);
+    cart_task->setReference(ref);
+
+    scene_plain.solve(scene_plain.update());
+    Eigen::VectorXd x0_plain = scene_plain.getSolverOutputRaw();
+    scene_smooth.solve(scene_smooth.update());
+    Eigen::VectorXd x0_smooth = scene_smooth.getSolverOutputRaw();
+
+    // First solution is not affected by the delta penalty (no previous solver output exists)
+    BOOST_CHECK((x0_plain - x0_smooth).norm() < 1e-6);
+
+    // Second, strongly different reference
+    ref.linear = Eigen::Vector3d(-2.0,1.5,-1.0);
+    ref.angular = Eigen::Vector3d(1.0,0.5,-1.5);
+    cart_task->setReference(ref);
+
+    scene_plain.solve(scene_plain.update());
+    Eigen::VectorXd x1_plain = scene_plain.getSolverOutputRaw();
+    scene_smooth.solve(scene_smooth.update());
+    Eigen::VectorXd x1_smooth = scene_smooth.getSolverOutputRaw();
+
+    // With delta penalty, the solution changes much less between consecutive cycles
+    double jump_plain = (x1_plain - x0_plain).norm();
+    double jump_smooth = (x1_smooth - x0_smooth).norm();
+    BOOST_CHECK(jump_plain > 1e-3); // the reference change actually produces a jump
+    BOOST_CHECK(jump_smooth < 0.1 * jump_plain);
+}
