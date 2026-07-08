@@ -15,7 +15,10 @@ SceneRegistry<AccelerationSceneTSID> AccelerationSceneTSID::reg("acceleration_ts
 AccelerationSceneTSID::AccelerationSceneTSID(RobotModelPtr robot_model, QPSolverPtr solver, const double dt, uint dim_contact) :
     Scene(robot_model, solver, dt),
     configured(false),
-    dim_contact(dim_contact){
+    dim_contact(dim_contact),
+    acceleration_regularization(1e-8),
+    torque_regularization(0.0),
+    wrench_regularization(1e-12){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
@@ -139,7 +142,9 @@ const HierarchicalQP& AccelerationSceneTSID::update(){
         }
     }
 
-    qp.H.diagonal().array() += hessian_regularizer;
+    qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_regularization;
+    qp.H.block(nj,nj,na,na).diagonal().array() += torque_regularization;
+    qp.H.block(nj+na,nj+na,ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_regularization;
 
     return hqp;
 }

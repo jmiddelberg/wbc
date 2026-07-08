@@ -12,7 +12,8 @@ SceneRegistry<VelocitySceneQP> VelocitySceneQP::reg("velocity_qp");
 
 VelocitySceneQP::VelocitySceneQP(RobotModelPtr robot_model, QPSolverPtr solver, const double dt) :
     Scene(robot_model, solver, dt),
-    configured(false){
+    configured(false),
+    velocity_regularization(1e-8){
 
     // for now manually adding constraint to this scene (an option would be to take them during configuration)
     constraints.push_back(std::make_shared<ContactsVelocityConstraint>());
@@ -125,7 +126,7 @@ const HierarchicalQP& VelocitySceneQP::update(){
     } // tasks on prio
 
     // Add regularization term
-    qp.H.block(0,0,nj,nj).diagonal().array() += hessian_regularizer;
+    qp.H.block(0,0,nj,nj).diagonal().array() += velocity_regularization;
 
     return hqp;
 }

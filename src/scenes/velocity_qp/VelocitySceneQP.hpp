@@ -39,6 +39,7 @@ protected:
     HierarchicalQP hqp;
     bool configured;
     types::JointCommand solver_output_joints;
+    double velocity_regularization;
 
 public:
     /**
@@ -65,6 +66,13 @@ public:
      * @return Solver output as joint velocity command
      */
     virtual const types::JointCommand& solve(const HierarchicalQP& hqp);
+
+
+    /**
+     * @brief Set velocity regularization term.
+     * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8.
+     */
+    void setVelocityRegularization(const double reg){velocity_regularization=reg;}
 };
 
 } // namespace wbc

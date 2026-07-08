@@ -49,6 +49,8 @@ protected:
     types::JointCommand solver_output_joints;
     uint dim_contact;
     bool use_spatial_acc_bias;
+    double acceleration_regularization;
+    double wrench_regularization;
 
     bool contactsHaveChanged(const std::vector<types::Contact>& old_contacts, const std::vector<types::Contact>& new_contacts){
         if(old_contacts.size() != new_contacts.size())
@@ -81,6 +83,18 @@ public:
      * @return Solver output as joint acceleration command
      */
     virtual const types::JointCommand& solve(const HierarchicalQP& hqp);
+
+    /**
+     * @brief Set acceleration regularization term.
+     * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8.
+     */
+    void setAccelerationRegularization(const double reg){acceleration_regularization=reg;}
+
+    /**
+     * @brief Set contact Wrench regularization term.
+     * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8
+     */
+    void setContactWrenchRegularization(const double reg){wrench_regularization=reg;}
 };
 
 } // namespace wbc
