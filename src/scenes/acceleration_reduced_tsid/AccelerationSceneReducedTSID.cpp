@@ -17,7 +17,9 @@ AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_m
     Scene(robot_model, solver, dt),
     configured(false),
     dim_contact(dim_contact),
-    use_spatial_acc_bias(use_spatial_acc_bias){
+    use_spatial_acc_bias(use_spatial_acc_bias),
+    acceleration_regularization(1e-8),
+    wrench_regularization(1e-12){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
