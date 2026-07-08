@@ -80,6 +80,48 @@ BOOST_AUTO_TEST_CASE(configure_and_update){
 }
 
 
+BOOST_AUTO_TEST_CASE(velocity_low_pass_filter){
+    string urdf_file = "../../../../../models/kuka/urdf/kuka_iiwa.urdf";
+
+    RobotModelPtr robot_model = make_shared<RobotModelPinocchio>();
+
+    // Invalid config: cutoff frequency set, but no sample time
+    RobotModelConfig cfg(urdf_file);
+    cfg.floating_base = true;
+    BOOST_CHECK(robot_model->configure(cfg) == false);
+
+    // Valid config
+    double velocity_filter_cutoff_freq = 10.0;
+    double velocity_filter_sample_time = 1e-3;
+    robot_model->setVelocityFilterCutoffFreq(velocity_filter_cutoff_freq);
+    robot_model->setVelocityFilterSampleTime(velocity_filter_sample_time);
+    BOOST_CHECK(robot_model->configure(cfg) == true);
+
+    double alpha = velocity_filter_sample_time / (velocity_filter_sample_time + 1.0/(2.0*M_PI*velocity_filter_cutoff_freq));
+
+    types::JointState joint_state = makeRandomJointState(robot_model->na());
+    types::RigidBodyState fb_state = makeRandomFloatingBaseState();
+
+    // First update: filter state is initialized with the first sample, velocities pass through unchanged
+    robot_model->update(joint_state.position, joint_state.velocity, joint_state.acceleration,
+                        fb_state.pose, fb_state.twist, fb_state.acceleration);
+    BOOST_CHECK((robot_model->jointState().velocity - joint_state.velocity).norm() < 1e-12);
+    BOOST_CHECK((robot_model->floatingBaseState().twist.linear - fb_state.twist.linear).norm() < 1e-12);
+    BOOST_CHECK((robot_model->floatingBaseState().twist.angular - fb_state.twist.angular).norm() < 1e-12);
+
+    // Second update with new velocities: output is low-pass filtered
+    types::JointState joint_state2 = makeRandomJointState(robot_model->na());
+    types::RigidBodyState fb_state2 = makeRandomFloatingBaseState();
+    robot_model->update(joint_state2.position, joint_state2.velocity, joint_state2.acceleration,
+                        fb_state2.pose, fb_state2.twist, fb_state2.acceleration);
+
+    Eigen::VectorXd jnt_vel_expected = alpha*joint_state2.velocity + (1.0-alpha)*joint_state.velocity;
+    Eigen::VectorXd fb_vel_expected = alpha*fb_state2.twist.vector6d() + (1.0-alpha)*fb_state.twist.vector6d();
+    BOOST_CHECK((robot_model->jointState().velocity - jnt_vel_expected).norm() < 1e-12);
+    BOOST_CHECK((robot_model->floatingBaseState().twist.linear - fb_vel_expected.segment(0,3)).norm() < 1e-12);
+    BOOST_CHECK((robot_model->floatingBaseState().twist.angular - fb_vel_expected.segment(3,3)).norm() < 1e-12);
+}
+
 BOOST_AUTO_TEST_CASE(fk){
     string urdf_file = "../../../../../models/kuka/urdf/kuka_iiwa.urdf";
     string tip_frame = "kuka_lbr_l_tcp";

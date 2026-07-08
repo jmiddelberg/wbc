@@ -20,6 +20,32 @@ BOOST_AUTO_TEST_CASE(test_moving_median_filter){
     BOOST_CHECK_EQUAL(filter.apply(1.0), 4.0);
 }
 
+BOOST_AUTO_TEST_CASE(test_low_pass_filter){
+    const double cutoff_freq = 10.0; // Hz
+    const double sample_time = 1e-3; // s
+    LowPassFilter filter(cutoff_freq, sample_time);
+
+    Eigen::VectorXd x0 = Eigen::VectorXd::Constant(3, 2.0);
+    Eigen::VectorXd x1 = Eigen::VectorXd::Constant(3, 4.0);
+
+    // First sample initializes the filter state
+    BOOST_CHECK_SMALL((filter.apply(x0) - x0).norm(), 1e-12);
+
+    // Single step: y_1 = alpha*x_1 + (1-alpha)*y_0
+    double alpha = sample_time / (sample_time + 1.0 / (2.0 * M_PI * cutoff_freq));
+    Eigen::VectorXd y1_expected = alpha * x1 + (1.0 - alpha) * x0;
+    BOOST_CHECK_SMALL((filter.apply(x1) - y1_expected).norm(), 1e-12);
+
+    // Step response converges to the input
+    for(int i = 0; i < 10000; i++)
+        filter.apply(x1);
+    BOOST_CHECK_SMALL((filter.apply(x1) - x1).norm(), 1e-6);
+
+    // reset() re-initializes the state with the next sample
+    filter.reset();
+    BOOST_CHECK_SMALL((filter.apply(x0) - x0).norm(), 1e-12);
+}
+
 BOOST_AUTO_TEST_CASE(test_multi_dim){
 
     const int N_JOINT = 20;

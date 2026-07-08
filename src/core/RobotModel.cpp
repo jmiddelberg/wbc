@@ -5,7 +5,11 @@
 namespace wbc{
 
 RobotModel::RobotModel() :
-    gravity(Eigen::Vector3d(0,0,-9.81)), configured(false), updated(false){
+    gravity(Eigen::Vector3d(0,0,-9.81)), 
+    configured(false), 
+    updated(false),
+    velocity_filter_cutoff_freq(0),
+    velocity_filter_sample_time(0){
 }
 
 void RobotModel::update(const Eigen::VectorXd& joint_positions,

@@ -24,6 +24,8 @@ void RobotModelPinocchio::clear(){
     RobotModel::clear();
     data.reset();
     model = pinocchio::Model();
+    joint_vel_filter.reset();
+    fb_vel_filter.reset();
 }
 
 bool RobotModelPinocchio::configure(const RobotModelConfig& cfg){
@@ -106,6 +108,17 @@ bool RobotModelPinocchio::configure(const RobotModelConfig& cfg){
     for(uint i = 0; i < actuated_joint_names.size(); i++)
         selection_matrix(i, nfb() + i) = 1.0;
 
+    // Optional low-pass filter on joint and floating base velocities
+    if(velocity_filter_cutoff_freq > 0){
+        if(velocity_filter_sample_time <= 0){
+            log(logERROR)<<"velocity_filter_sample_time in robot model config has to be > 0 if velocity_filter_cutoff_freq is set, but is "<<velocity_filter_sample_time;
+            return false;
+        }
+        joint_vel_filter = std::make_unique<LowPassFilter>(velocity_filter_cutoff_freq, velocity_filter_sample_time);
+        if(has_floating_base)
+            fb_vel_filter = std::make_unique<LowPassFilter>(velocity_filter_cutoff_freq, velocity_filter_sample_time);
+    }
+
     contacts = cfg.contact_points;
 
     configured = true;
@@ -138,15 +151,23 @@ void RobotModelPinocchio::update(const Eigen::VectorXd& joint_positions,
     resetData();
 
     joint_state.position = joint_positions;
-    joint_state.velocity = joint_velocities;
+    if(joint_vel_filter)
+        joint_state.velocity = joint_vel_filter->apply(joint_velocities);
+    else
+        joint_state.velocity = joint_velocities;
     joint_state.acceleration = joint_accelerations;
 
-    if(has_floating_base){      
+    if(has_floating_base){
         // Pinocchio expects the floating base twist/acceleration in local coordinates. However, we
         // want to give the linear part in world coordinates and the angular part in local coordinates, aligned wrt. world
         floating_base_state.pose = fb_pose;
         floating_base_state.twist = fb_twist;
         floating_base_state.acceleration = fb_acc;
+        if(fb_vel_filter){
+            const Eigen::VectorXd& fb_twist_filtered = fb_vel_filter->apply(fb_twist.vector6d());
+            floating_base_state.twist.linear = fb_twist_filtered.segment(0,3);
+            floating_base_state.twist.angular = fb_twist_filtered.segment(3,3);
+        }
         Eigen::Matrix3d fb_rot = floating_base_state.pose.orientation.toRotationMatrix();
 
         types::Twist fb_twist_tmp = floating_base_state.twist;
