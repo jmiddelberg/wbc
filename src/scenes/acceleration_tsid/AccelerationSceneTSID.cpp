@@ -16,9 +16,9 @@ AccelerationSceneTSID::AccelerationSceneTSID(RobotModelPtr robot_model, QPSolver
     Scene(robot_model, solver, dt),
     configured(false),
     dim_contact(dim_contact),
-    acceleration_regularization(1e-8),
+    acceleration_penalty(1e-8),
     torque_regularization(0.0),
-    wrench_regularization(1e-12){
+    contact_wrench_penalty(1e-12){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
@@ -142,9 +142,9 @@ const HierarchicalQP& AccelerationSceneTSID::update(){
         }
     }
 
-    qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_regularization;
+    qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_penalty;
     qp.H.block(nj,nj,na,na).diagonal().array() += torque_regularization;
-    qp.H.block(nj+na,nj+na,ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_regularization;
+    qp.H.block(nj+na,nj+na,ncp*dim_contact, ncp*dim_contact).diagonal().array() += contact_wrench_penalty;
 
     return hqp;
 }

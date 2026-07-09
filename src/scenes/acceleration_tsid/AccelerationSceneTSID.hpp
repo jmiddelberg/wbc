@@ -49,8 +49,8 @@ protected:
     bool configured;
     types::JointCommand solver_output_joints;
     uint dim_contact;
-    double acceleration_regularization;
-    double wrench_regularization;
+    double acceleration_penalty;
+    double contact_wrench_penalty;
     double torque_regularization;
 
 
@@ -91,19 +91,19 @@ public:
      * @brief Set acceleration regularization term.
      * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8.
      */
-    void setAccelerationRegularization(const double reg){acceleration_regularization=reg;}
+    void setAccelerationPenalty(const double reg){acceleration_penalty=reg;}
 
     /**
      * @brief Set joint torque regularization term.
      * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8
      */
-    void setJointTorqueRegularization(const double reg){torque_regularization=reg;}
+    void setJointTorquePenalty(const double reg){torque_regularization=reg;}
 
     /**
      * @brief Set contact wrench regularization term.
      * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8
      */
-    void setContactWrenchRegularization(const double reg){wrench_regularization=reg;}
+    void setContactWrenchPenalty(const double reg){contact_wrench_penalty=reg;}
 
 };
 

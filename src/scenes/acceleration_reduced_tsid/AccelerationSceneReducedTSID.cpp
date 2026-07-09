@@ -18,10 +18,10 @@ AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_m
     configured(false),
     dim_contact(dim_contact),
     use_spatial_acc_bias(use_spatial_acc_bias),
-    acceleration_regularization(1e-8),
-    wrench_regularization(1e-12),
-    acceleration_delta_weight(0),
-    wrench_delta_weight(0){
+    acceleration_penalty(1e-8),
+    contact_wrench_penalty(1e-12),
+    acceleration_delta_penalty(0),
+    wrench_delta_penalty(0){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
@@ -152,18 +152,18 @@ const HierarchicalQP& AccelerationSceneReducedTSID::update(){
             qp.g.segment(0,nj) -= task->Aw.transpose()*task->y_ref;
         }
     }
-    qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_regularization;
-    qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_regularization;
+    qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_penalty;
+    qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += contact_wrench_penalty;
 
     // Penalize the difference to the previous solver output: w*||x - x_prev||^2, which smoothes the solution over time.
     // Only applied if a previous solution of matching size exists and the contact configuration has not changed, since
     // the meaning of the wrench variables changes with the contacts
-    if((acceleration_delta_weight > 0 || wrench_delta_weight > 0) &&
+    if((acceleration_delta_penalty > 0 || wrench_delta_penalty > 0) &&
        solver_output.size() == qp.nq && !contactsHaveChanged(contacts, robot_model->getContacts())){
-        qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_delta_weight;
-        qp.g.segment(0,nj) -= acceleration_delta_weight * solver_output.segment(0,nj);
-        qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_delta_weight;
-        qp.g.segment(nj,ncp*dim_contact) -= wrench_delta_weight * solver_output.segment(nj,ncp*dim_contact);
+        qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_delta_penalty;
+        qp.g.segment(0,nj) -= acceleration_delta_penalty * solver_output.segment(0,nj);
+        qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += wrench_delta_penalty;
+        qp.g.segment(nj,ncp*dim_contact) -= wrench_delta_penalty * solver_output.segment(nj,ncp*dim_contact);
     }
     return hqp;
 }

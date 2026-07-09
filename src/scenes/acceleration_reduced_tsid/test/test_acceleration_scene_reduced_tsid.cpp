@@ -144,8 +144,8 @@ BOOST_AUTO_TEST_CASE(delta_penalty){
     AccelerationSceneReducedTSID scene_smooth(robot_model, makeSolver(), 1e-3);
     BOOST_CHECK_EQUAL(scene_plain.configure({cart_task}), true);
     BOOST_CHECK_EQUAL(scene_smooth.configure({cart_task}), true);
-    scene_smooth.setAccelerationDeltaWeight(1e3);
-    scene_smooth.setContactWrenchDeltaWeight(1e3);
+    scene_smooth.setAccelerationDeltaPenalty(1e3);
+    scene_smooth.setContactWrenchDeltaPenalty(1e3);
 
     // First reference
     types::SpatialAcceleration ref;

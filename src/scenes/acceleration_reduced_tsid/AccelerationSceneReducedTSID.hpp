@@ -49,10 +49,10 @@ protected:
     types::JointCommand solver_output_joints;
     uint dim_contact;
     bool use_spatial_acc_bias;
-    double acceleration_regularization;
-    double wrench_regularization;
-    double acceleration_delta_weight;
-    double wrench_delta_weight;
+    double acceleration_penalty;
+    double contact_wrench_penalty;
+    double acceleration_delta_penalty;
+    double wrench_delta_penalty;
 
     bool contactsHaveChanged(const std::vector<types::Contact>& old_contacts, const std::vector<types::Contact>& new_contacts){
         if(old_contacts.size() != new_contacts.size())
@@ -90,20 +90,20 @@ public:
      * @brief Set acceleration regularization term.
      * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8.
      */
-    void setAccelerationRegularization(const double reg){acceleration_regularization=reg;}
+    void setAccelerationPenalty(const double reg){acceleration_penalty=reg;}
 
     /**
      * @brief Set contact Wrench regularization term.
      * @param reg This value is added to the diagonal of the Hessian matrix inside the QP to reduce the risk of infeasibility. Default is 1e-8
      */
-    void setContactWrenchRegularization(const double reg){wrench_regularization=reg;}
+    void setContactWrenchPenalty(const double reg){contact_wrench_penalty=reg;}
 
     /**
      * @brief Set weight for penalizing the difference between consecutive joint accelerations (solver output), i.e., the term
      * \f$ w\|\ddot{\mathbf{q}} - \ddot{\mathbf{q}}_{prev}\|_2^2 \f$ is added to the cost function. This smoothes the solver output over time,
      * which is helpful e.g. on real robots with noisy state estimation. Higher values give smoother, but less reactive motion. Default is 0 (disabled).
      */
-    void setAccelerationDeltaWeight(const double w){acceleration_delta_weight=w;}
+    void setAccelerationDeltaPenalty(const double w){acceleration_delta_penalty=w;}
 
     /**
      * @brief Set weight for penalizing the difference between consecutive contact wrenches (solver output), i.e., the term
@@ -111,7 +111,7 @@ public:
      * which is helpful e.g. on real robots with noisy state estimation, where the force distribution may otherwise jump between the
      * contact points. Higher values give smoother, but less reactive force distributions. Default is 0 (disabled).
      */
-    void setContactWrenchDeltaWeight(const double w){wrench_delta_weight=w;}
+    void setContactWrenchDeltaPenalty(const double w){wrench_delta_penalty=w;}
 };
 
 } // namespace wbc
