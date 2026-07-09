@@ -24,7 +24,9 @@ public:
         submechanism_file(submechanism_file),
         floating_base(floating_base),
         contact_points(contact_points),
-        joint_blacklist(joint_blacklist){
+        joint_blacklist(joint_blacklist),
+        velocity_filter_cutoff_freq(0.),
+        velocity_filter_sample_time(0.){
 
     }
 
@@ -40,6 +42,11 @@ public:
     std::vector<std::string> joint_blacklist;
     /** Optional: Max. acceleration joint limits (abs value). Not supported in URDF, so we have to define them separately */
     std::vector<double> max_joint_acceleration;
+    /** Optional: Cutoff frequency for the velocity filter */
+    double velocity_filter_cutoff_freq;
+    /** Optional: Sample time for the velocity filter */
+    double velocity_filter_sample_time;
+    
 };
 
 }

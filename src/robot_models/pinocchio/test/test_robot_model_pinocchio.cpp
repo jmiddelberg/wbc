@@ -87,17 +87,15 @@ BOOST_AUTO_TEST_CASE(velocity_low_pass_filter){
 
     // Invalid config: cutoff frequency set, but no sample time
     RobotModelConfig cfg(urdf_file);
-    double velocity_filter_cutoff_freq = 10.0;
-    robot_model->setVelocityFilterCutoffFreq(velocity_filter_cutoff_freq);
     cfg.floating_base = true;
+    cfg.velocity_filter_cutoff_freq = 10.0;
     BOOST_CHECK(robot_model->configure(cfg) == false);
 
     // Valid config
-    double velocity_filter_sample_time = 1e-3;
-    robot_model->setVelocityFilterSampleTime(velocity_filter_sample_time);
+    cfg.velocity_filter_sample_time = 1e-3;
     BOOST_CHECK(robot_model->configure(cfg) == true);
 
-    double alpha = velocity_filter_sample_time / (velocity_filter_sample_time + 1.0/(2.0*M_PI*velocity_filter_cutoff_freq));
+    double alpha = cfg.velocity_filter_sample_time / (cfg.velocity_filter_sample_time + 1.0/(2.0*M_PI*cfg.velocity_filter_cutoff_freq));
 
     types::JointState joint_state = makeRandomJointState(robot_model->na());
     types::RigidBodyState fb_state = makeRandomFloatingBaseState();

@@ -109,14 +109,14 @@ bool RobotModelPinocchio::configure(const RobotModelConfig& cfg){
         selection_matrix(i, nfb() + i) = 1.0;
 
     // Optional low-pass filter on joint and floating base velocities
-    if(velocity_filter_cutoff_freq > 0){
-        if(velocity_filter_sample_time <= 0){
-            log(logERROR)<<"velocity_filter_sample_time in robot model config has to be > 0 if velocity_filter_cutoff_freq is set, but is "<<velocity_filter_sample_time;
+    if(cfg.velocity_filter_cutoff_freq > 0){
+        if(cfg.velocity_filter_sample_time <= 0){
+            log(logERROR)<<"velocity_filter_sample_time in robot model config has to be > 0 if velocity_filter_cutoff_freq is set, but is "<<cfg.velocity_filter_sample_time;
             return false;
         }
-        joint_vel_filter = std::make_unique<LowPassFilter>(velocity_filter_cutoff_freq, velocity_filter_sample_time);
+        joint_vel_filter = std::make_unique<LowPassFilter>(cfg.velocity_filter_cutoff_freq, cfg.velocity_filter_sample_time);
         if(has_floating_base)
-            fb_vel_filter = std::make_unique<LowPassFilter>(velocity_filter_cutoff_freq, velocity_filter_sample_time);
+            fb_vel_filter = std::make_unique<LowPassFilter>(cfg.velocity_filter_cutoff_freq, cfg.velocity_filter_sample_time);
     }
 
     contacts = cfg.contact_points;

@@ -95,8 +95,6 @@ protected:
     /** Optional low-pass filters on the joint and floating base velocities, see RobotModelConfig. Filtering is disabled if the pointers are null.*/
     std::unique_ptr<LowPassFilter> joint_vel_filter;
     std::unique_ptr<LowPassFilter> fb_vel_filter;
-    double velocity_filter_cutoff_freq;
-    double velocity_filter_sample_time;
 
 public:
     RobotModel();
@@ -304,12 +302,6 @@ public:
 
     /** @brief set Joint weights by given name */
     void setJointWeights(const Eigen::VectorXd& weights);
-
-    /** @brief Set the cutoff frequency for the velocity filter */
-    void setVelocityFilterCutoffFreq(double freq){velocity_filter_cutoff_freq = freq;}
-
-    /** @brief Set the sample time for the velocity filter */
-    void setVelocityFilterSampleTime(double sample_time){velocity_filter_sample_time = sample_time;}
 
     /**
      * @brief Get Joint weights as Named vector
