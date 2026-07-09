@@ -13,6 +13,11 @@ void ContactsFrictionSurfaceConstraint::update(RobotModelPtr robot_model){
 
     uint nv = reduced ? nj + 6*nc : nj + na + 6*nc;
 
+    // one slack variable per contact, appended after the contact wrenches
+    uint slack_start_idx = nv;
+    if(use_slack)
+        nv += nc;
+
     const uint row_skip = 16, col_skip = 6;
 
     A_mtx.resize(nac*row_skip, nv);
@@ -58,6 +63,8 @@ void ContactsFrictionSurfaceConstraint::update(RobotModelPtr robot_model){
             lb_vec.segment(idx*row_skip,row_skip) = lb;
             ub_vec.segment(idx*row_skip,row_skip) = ub;
             A_mtx.block<row_skip,col_skip>(idx*row_skip,start_idx+i*6) = a;
+            if(use_slack) // soften all cone facets of this contact with a single slack variable: a*f - s <= 0
+                A_mtx.block<row_skip,1>(idx*row_skip,slack_start_idx+i).setConstant(-1);
             idx++;
         }
     }

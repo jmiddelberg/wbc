@@ -21,7 +21,8 @@ AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_m
     acceleration_penalty(1e-8),
     contact_wrench_penalty(1e-12),
     acceleration_delta_penalty(0),
-    wrench_delta_penalty(0){
+    wrench_delta_penalty(0),
+    friction_cone_slack_penalty(0){
 
     // whether or not torques are removed  from the qp problem
     // this formulation includes torques !!!
@@ -35,8 +36,19 @@ AccelerationSceneReducedTSID::AccelerationSceneReducedTSID(RobotModelPtr robot_m
     constraints.push_back(std::make_shared<EffortLimitsAccelerationConstraint>(dim_contact));
     if(dim_contact == 3)
         constraints.push_back(std::make_shared<ContactsFrictionPointConstraint>(reduced));
-    else
-        constraints.push_back(std::make_shared<ContactsFrictionSurfaceConstraint>(reduced));
+    else{
+        friction_surface_constraint = std::make_shared<ContactsFrictionSurfaceConstraint>(reduced);
+        constraints.push_back(friction_surface_constraint);
+    }
+}
+
+void AccelerationSceneReducedTSID::setFrictionConeSlackPenalty(const double w){
+    if(!friction_surface_constraint){
+        log(logERROR)<<"Friction cone slack variables are only available for surface contacts (dim_contact == 6)";
+        return;
+    }
+    friction_cone_slack_penalty = w;
+    friction_surface_constraint->setUseSlack(w > 0);
 }
 
 bool AccelerationSceneReducedTSID::configure(const std::vector<TaskPtr> &tasks_in){
@@ -85,11 +97,15 @@ const HierarchicalQP& AccelerationSceneReducedTSID::update(){
             has_bounds = true;
     }
 
+    // Number of slack variables (one per contact, if the friction cone constraint is softened)
+    uint ns = (friction_surface_constraint && friction_surface_constraint->useSlack()) ? ncp : 0;
+
     // QP Size: (nc x nj+nc*3)
-    // Variable order: (qdd,f_ext)
+    // Variable order: (qdd,f_ext,slack)
     QuadraticProgram& qp = hqp[0];
-    qp.resize(nj+ncp*dim_contact, total_eqs, total_ineqs, has_bounds);
+    qp.resize(nj+ncp*dim_contact+ns, total_eqs, total_ineqs, has_bounds);
     qp.A.setZero();
+    qp.C.setZero();
     qp.lower_x.setConstant(-10000);   // bounds
     qp.upper_x.setConstant(+10000);   // bounds
     qp.lower_y.setZero(); // inequalities
@@ -100,22 +116,28 @@ const HierarchicalQP& AccelerationSceneReducedTSID::update(){
         Constraint::Type type = constraints[i]->type();
         size_t c_size = constraints[i]->size();
 
+        // The constraint matrices may have less columns than the qp (e.g. no slack variables), so copy
+        // them to the left block of the qp matrices and leave the remaining columns zero
         if(type == Constraint::bounds) {
-            qp.lower_x = constraints[i]->lb(); // NOTE! Good only if a single bound task is admitted
-            qp.upper_x = constraints[i]->ub();
+            qp.lower_x.head(constraints[i]->lb().size()) = constraints[i]->lb(); // NOTE! Good only if a single bound task is admitted
+            qp.upper_x.head(constraints[i]->ub().size()) = constraints[i]->ub();
         }
         else if (type == Constraint::equality) {
-            qp.A.middleRows(total_eqs, c_size) = constraints[i]->A();
+            qp.A.block(total_eqs, 0, c_size, constraints[i]->A().cols()) = constraints[i]->A();
             qp.b.segment(total_eqs, c_size) = constraints[i]->b();
             total_eqs += c_size;
         }
         else if (type == Constraint::inequality) {
-            qp.C.middleRows(total_ineqs, c_size) = constraints[i]->A();
+            qp.C.block(total_ineqs, 0, c_size, constraints[i]->A().cols()) = constraints[i]->A();
             qp.lower_y.segment(total_ineqs, c_size) = constraints[i]->lb();
             qp.upper_y.segment(total_ineqs, c_size) = constraints[i]->ub();
             total_ineqs += c_size;
         }
     }
+
+    // Slack variables must be positive: A*f <= s, s >= 0
+    if(ns > 0)
+        qp.lower_x.tail(ns).setZero();
 
     ///////// Tasks
 
@@ -154,6 +176,8 @@ const HierarchicalQP& AccelerationSceneReducedTSID::update(){
     }
     qp.H.block(0,0,nj,nj).diagonal().array() += acceleration_penalty;
     qp.H.block(nj,nj, ncp*dim_contact, ncp*dim_contact).diagonal().array() += contact_wrench_penalty;
+    if(ns > 0)
+        qp.H.bottomRightCorner(ns,ns).diagonal().array() += friction_cone_slack_penalty;
 
     // Penalize the difference to the previous solver output: w*||x - x_prev||^2, which smoothes the solution over time.
     // Only applied if a previous solution of matching size exists and the contact configuration has not changed, since

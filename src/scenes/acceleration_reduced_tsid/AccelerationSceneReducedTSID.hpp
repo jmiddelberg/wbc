@@ -6,6 +6,8 @@
 
 namespace wbc{
 
+class ContactsFrictionSurfaceConstraint;
+
 /**
  * @brief Acceleration-based implementation of the WBC Scene. It sets up and solves the following problem:
  *  \f[
@@ -53,6 +55,8 @@ protected:
     double contact_wrench_penalty;
     double acceleration_delta_penalty;
     double wrench_delta_penalty;
+    double friction_cone_slack_penalty;
+    std::shared_ptr<ContactsFrictionSurfaceConstraint> friction_surface_constraint;
 
     bool contactsHaveChanged(const std::vector<types::Contact>& old_contacts, const std::vector<types::Contact>& new_contacts){
         if(old_contacts.size() != new_contacts.size())
@@ -112,6 +116,16 @@ public:
      * contact points. Higher values give smoother, but less reactive force distributions. Default is 0 (disabled).
      */
     void setContactWrenchDeltaPenalty(const double w){wrench_delta_penalty=w;}
+
+    /**
+     * @brief Soften the contact surface friction cone constraint using a single slack variable \f$s_i\f$ per contact, i.e., the
+     * hard constraint \f$\mathbf{A}_i\mathbf{f}_i \leq \mathbf{0}\f$ is replaced by \f$\mathbf{A}_i\mathbf{f}_i \leq s_i\mathbf{1}, s_i \geq 0\f$
+     * and the term \f$ w\sum_i s_i^2 \f$ is added to the cost function. This avoids hard active-set switching (chattering) and
+     * infeasibility due to noisy state estimates on a real robot, at the cost of allowing small friction cone violations.
+     * Higher values approximate the hard constraint more closely. Only available for surface contacts (dim_contact == 6).
+     * Default is 0 (hard constraint, disabled).
+     */
+    void setFrictionConeSlackPenalty(const double w);
 };
 
 } // namespace wbc
