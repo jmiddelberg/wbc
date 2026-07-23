@@ -86,9 +86,22 @@ mkdir build && cd build
 cmake ..
 make -j8 && sudo make install && cd ../..
 
+# Clarabel
+# Rust toolchain (required to build Clarabel). Installs the latest stable rustc/cargo.
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
+# Clarabel.cpp provides no `make install`, so build the Rust C-library (the C++ headers are
+# committed in include/) and copy the headers + shared library into /usr/local manually.
+git clone --recurse-submodules https://github.com/oxfordcontrol/Clarabel.cpp.git
+cd Clarabel.cpp/rust_wrapper
+cargo build --release
+cd ../..
+sudo cp -r Clarabel.cpp/include /usr/local/include/clarabel
+sudo cp Clarabel.cpp/rust_wrapper/target/release/libclarabel_c.so /usr/local/lib/
+
 # WBC
 mkdir wbc/build && cd wbc/build
-cmake .. -DROBOT_MODEL_RBDL=ON -DSOLVER_PROXQP=ON -DSOLVER_EIQUADPROG=ON -DSOLVER_QPSWIFT=ON -DSOLVER_OSQP=ON -DCMAKE_BUILD_TYPE=RELEASE
+cmake .. -DROBOT_MODEL_RBDL=ON -DSOLVER_PROXQP=ON -DSOLVER_EIQUADPROG=ON -DSOLVER_QPSWIFT=ON -DSOLVER_OSQP=ON -DSOLVER_CLARABEL=ON -DCMAKE_BUILD_TYPE=RELEASE
 make -j8 && sudo make install && cd ..
 
 sudo ldconfig
