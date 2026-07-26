@@ -12,8 +12,10 @@ namespace wbc{
  */
 struct RobotModelConfig{
 public:
-    RobotModelConfig(){
-        floating_base = false;
+    RobotModelConfig() :
+        floating_base(false),
+        velocity_filter_cutoff_freq(0.),
+        velocity_filter_sample_time(0.){
     }
     RobotModelConfig(const std::string& file_or_string,
                      const bool floating_base = false,
