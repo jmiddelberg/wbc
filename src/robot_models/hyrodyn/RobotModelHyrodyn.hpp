@@ -32,7 +32,7 @@ public:
     /** @brief Update kinematics/dynamics.
       * @param joint_positions Positions of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
       * @param joint_velocities Velocities of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
-      * @param joint_acceleration Velocities of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
+      * @param joint_accelerations Accelerations of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
       * @param fb_pose Pose of the floating base in world coordinates
       * @param fb_twist Twist of the floating base in "local-world-aligned" (hybrid) representation, i.e., with respect to a frame attached to the floating base (robot root),
       * but aligned to world coordinates

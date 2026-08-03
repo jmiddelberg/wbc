@@ -21,8 +21,7 @@ public:
     Task();
 
     /** @brief Resizes all members
-      * @param nc Number of task variables
-      * @param nj Number of robot joints
+      * @param nv Number of task variables
       */
     Task(TaskConfig config, RobotModelPtr robot_model, uint nv, TaskType type);
     ~Task();
