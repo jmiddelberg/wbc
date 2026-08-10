@@ -92,7 +92,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 . "$HOME/.cargo/env"
 # Clarabel.cpp provides no `make install`, so build the Rust C-library (the C++ headers are
 # committed in include/) and copy the headers + shared library into /usr/local manually.
-git clone --recurse-submodules https://github.com/oxfordcontrol/Clarabel.cpp.git
+git clone --branch v0.11.1 --recurse-submodules https://github.com/oxfordcontrol/Clarabel.cpp.git
 cd Clarabel.cpp/rust_wrapper
 cargo build --release
 cd ../..
