@@ -5,7 +5,7 @@ include(CTest)
 find_package(PkgConfig REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem unit_test_framework serialization)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Release)
 set(PROJECT_VERSION 0.2)
 set(API_VERSION ${PROJECT_VERSION})
