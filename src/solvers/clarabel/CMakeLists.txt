@@ -6,19 +6,27 @@ SET(TARGET_NAME wbc-solvers-clarabel)
 # libclarabel_c.so to <prefix>/lib. A custom location can be given via -DCLARABEL_ROOT=<prefix>.
 find_package(Eigen3 3.4 CONFIG REQUIRED)
 
+# Locations can be overridden explicitly with -DCLARABEL_INCLUDE_DIR=... -DCLARABEL_LIBRARY=...
+# or pointed at an install prefix with -DCLARABEL_ROOT=<prefix>.
 find_path(CLARABEL_INCLUDE_DIR
           NAMES clarabel.hpp
           HINTS ${CLARABEL_ROOT} ENV CLARABEL_ROOT
+          PATHS /usr/local /usr /opt/clarabel
           PATH_SUFFIXES clarabel include/clarabel)
 find_library(CLARABEL_LIBRARY
              NAMES clarabel_c libclarabel_c
              HINTS ${CLARABEL_ROOT} ENV CLARABEL_ROOT
-             PATH_SUFFIXES lib)
+             PATHS /usr/local /usr /opt/clarabel
+             PATH_SUFFIXES lib lib64)
 
 if(NOT CLARABEL_INCLUDE_DIR OR NOT CLARABEL_LIBRARY)
-    message(FATAL_ERROR "Clarabel not found. Build Clarabel.cpp and install its 'include' tree to "
-                        "<prefix>/include/clarabel and libclarabel_c.so to <prefix>/lib, or pass "
-                        "-DCLARABEL_ROOT=<prefix>. See scripts/full_install.sh.")
+    message(FATAL_ERROR
+        "Clarabel not found:\n"
+        "    CLARABEL_INCLUDE_DIR = ${CLARABEL_INCLUDE_DIR}   (searched for clarabel.hpp)\n"
+        "    CLARABEL_LIBRARY     = ${CLARABEL_LIBRARY}   (searched for libclarabel_c)\n"
+        "Build Clarabel.cpp and install its 'include' tree to <prefix>/include/clarabel and\n"
+        "libclarabel_c.so to <prefix>/lib BEFORE configuring wbc (see docker/full_install steps),\n"
+        "or pass -DCLARABEL_ROOT=<prefix>  (or -DCLARABEL_INCLUDE_DIR=... -DCLARABEL_LIBRARY=...).")
 endif()
 message(STATUS "Found Clarabel: ${CLARABEL_LIBRARY} (headers: ${CLARABEL_INCLUDE_DIR})")
 
