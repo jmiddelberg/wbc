@@ -20,6 +20,7 @@ option(SOLVER_QPSWIFT "Build the QPSwift-based solver, by default only qpoases i
 option(SOLVER_OSQP "Build the OSQP-based solver, by default only qpoases is built" OFF)
 option(SOLVER_HPIPM "Build the HPIPM solver, by default only qpoases is built" OFF)
 option(SOLVER_CLARABEL "Build the Clarabel-based solver, by default only qpoases is built" OFF)
+option(SOLVER_DAQP "Build the DAQP-based solver, by default only qpoases is built" OFF)
 
 add_subdirectory(src)
 add_subdirectory(tutorials)
