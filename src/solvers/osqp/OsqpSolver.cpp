@@ -54,6 +54,8 @@ void OsqpSolver::solve(const HierarchicalQP& hierarchical_qp, Eigen::VectorXd& s
         configured = false;
 
     if(!configured){
+        if(solver.isInitialized())
+            solver.clearSolver();
         resize(qp.nq, nc);
         configured = true;
         solver.initSolver();
