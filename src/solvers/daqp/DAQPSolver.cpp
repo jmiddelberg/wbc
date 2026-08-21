@@ -22,7 +22,9 @@ static std::string exitFlagToString(int exitflag){
         case DAQP_EXIT_NONCONVEX:               return "NonConvex";
         case DAQP_EXIT_OVERDETERMINED_INITIAL:  return "OverdeterminedInitialWorkingSet";
         case DAQP_EXIT_TIMELIMIT:               return "TimeLimit";
+#ifdef DAQP_EXIT_UNSUPPORTED   // not defined by DAQP versions before v0.9
         case DAQP_EXIT_UNSUPPORTED:             return "Unsupported";
+#endif
         default:                                return "Unknown (" + std::to_string(exitflag) + ")";
     }
 }

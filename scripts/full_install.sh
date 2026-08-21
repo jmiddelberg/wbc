@@ -103,8 +103,9 @@ sudo cp Clarabel.cpp/rust_wrapper/target/release/libclarabel_c.so /usr/local/lib
 mkdir wbc/build && cd wbc/build
 cmake .. -DROBOT_MODEL_RBDL=ON -DSOLVER_PROXQP=ON -DSOLVER_EIQUADPROG=ON -DSOLVER_QPSWIFT=ON -DSOLVER_OSQP=ON -DSOLVER_CLARABEL=ON -DCMAKE_BUILD_TYPE=RELEASE
 # DAQP
-git clone --branch v0.9.1 https://github.com/darnstrom/daqp.git
+git clone https://github.com/darnstrom/daqp.git
 cd daqp
+git checkout dc13508
 mkdir build && cd build
 cmake ..
 make -j8 && sudo make install && cd ../..
