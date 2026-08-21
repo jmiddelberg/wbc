@@ -87,8 +87,9 @@ cmake ..
 make -j8 && sudo make install && cd ../..
 
 # DAQP
-git clone --branch v0.9.1 https://github.com/darnstrom/daqp.git
+git clone https://github.com/darnstrom/daqp.git
 cd daqp
+git checkout dc13508
 mkdir build && cd build
 cmake ..
 make -j8 && sudo make install && cd ../..
