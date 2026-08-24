@@ -1,6 +1,7 @@
 #include "ClarabelSolver.hpp"
 #include "../../core/QuadraticProgram.hpp"
 #include <Eigen/Core>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -42,6 +43,10 @@ ClarabelSolver::ClarabelSolver() : _actual_n_iter(0)
 ///      [-C ] x  <= -lower_y                > NonnegativeCone(2*nin + (bounded ? 2*nq : 0))
 ///      [ I ] x  <= upper_x (if bounded)   |
 ///      [-I ] x  <= -lower_x (if bounded)  /
+///
+/// Right-hand sides of the NonnegativeCone block that reach the sentinel magnitude used by the
+/// scenes for "no bound" are replaced by an actual infinity, so that Clarabel's presolve removes
+/// those rows before solving (see setInfinity()).
 void ClarabelSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::VectorXd& solver_output, bool allow_warm_start)
 {
     (void)allow_warm_start; // Clarabel is an interior-point solver and is rebuilt on every call.
@@ -90,6 +95,16 @@ void ClarabelSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::Ve
         _A_dense.middleRows(row, qp.nq) = -Eigen::MatrixXd::Identity(qp.nq, qp.nq);
         _b.segment(row, qp.nq) = -qp.lower_x;
         row += qp.nq;
+    }
+
+    // Promote the scenes' "no bound" sentinels to actual infinities. Clarabel's presolve then
+    // drops these rows, which typically removes more than half of the NonnegativeCone block and
+    // roughly halves the iteration count. Only the NonnegativeCone block is touched, the
+    // equality rows are left alone. The substitution requires settings.presolve_enable (which is
+    // on by default): with presolve disabled the infinities would be fed to the solver directly.
+    if(m_nn > 0 && settings.presolve_enable){
+        _b.tail(m_nn) = (_b.tail(m_nn).array() >= infinity)
+                            .select(std::numeric_limits<double>::infinity(), _b.tail(m_nn));
     }
 
     _A = _A_dense.sparseView();

@@ -28,6 +28,9 @@ class HierarchicalQP;
  * where the equality rows go into a ZeroCone and the (two-sided) inequality and bound rows are
  * split into pairs of NonnegativeCone rows.
  *
+ * A right-hand side at or beyond getInfinity() is replaced by an actual infinity, which makes
+ * Clarabel's presolve drop that row from the problem entirely. See setInfinity().
+ *
  * Reference:
  * Goulart, P.J., Chen, Y. Clarabel: An interior-point solver for conic programs with quadratic
  * objectives. https://arxiv.org/abs/2405.12762
@@ -59,6 +62,24 @@ public:
     /** Set solver options. Overrides the default settings for all subsequent calls to solve().*/
     void setOptions(clarabel::DefaultSettings<double> opt){ settings = opt; }
 
+    /**
+     * @brief Set the magnitude at which a constraint bound is considered absent.
+     *
+     * QuadraticProgram has no way of marking a bound as unbounded, so the scenes fill unused
+     * bounds with large finite sentinel values (AccelerationSceneReducedTSID for example uses
+     * +/-1e4 as the default bound of every variable). For an active-set solver such a row is
+     * free, but Clarabel is an interior-point method: the row stays in the KKT system that is
+     * factorized in every iteration, and its distance to the iterate is orders of magnitude
+     * larger than that of the rows that can actually become active, which distorts the central
+     * path. Rows whose right-hand side reaches this value are therefore handed to Clarabel as
+     * an actual infinity so that its presolve removes them.
+     *
+     * Must be larger than any bound that can genuinely become active, otherwise that constraint
+     * is silently dropped. Set to infinity to disable the substitution.
+     */
+    void setInfinity(double value){ infinity = value; }
+    double getInfinity() const { return infinity; }
+
 protected:
 
     // Clarabel conic problem data (kept as members so the mutable Eigen::Ref arguments to the
@@ -70,6 +91,8 @@ protected:
     Eigen::VectorXd _b;             // stacked right-hand side
 
     int _actual_n_iter;
+
+    double infinity = 1e4;          // see setInfinity()
 
     clarabel::DefaultSettings<double> settings = clarabel::DefaultSettings<double>::default_settings();
 };

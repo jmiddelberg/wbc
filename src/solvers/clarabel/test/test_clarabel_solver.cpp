@@ -2,6 +2,7 @@
 #define BOOST_TEST_MAIN
 #include <boost/test/unit_test.hpp>
 #include <iostream>
+#include <limits>
 #include <sys/time.h>
 #include "../../../core/QuadraticProgram.hpp"
 #include "../ClarabelSolver.hpp"
@@ -220,4 +221,79 @@ BOOST_AUTO_TEST_CASE(solver_clarabel_bounded)
     for(uint j = 0; j < NO_JOINTS; ++j)
         BOOST_CHECK((qp.lower_x(j)-TOL) <= solver_output(j) && solver_output(j) <= (qp.upper_x(j)+TOL));
 
+}
+
+BOOST_AUTO_TEST_CASE(solver_clarabel_sentinel_bounds_are_treated_as_infinite)
+{
+    // QuadraticProgram cannot mark a bound as absent, so the scenes fill unused bounds with large
+    // finite sentinels. ClarabelSolver replaces those with an actual infinity so that Clarabel's
+    // presolve drops the corresponding rows. Check that this leaves the solution untouched while
+    // bounds below the threshold are still enforced.
+
+    const int NO_JOINTS = 6;
+    const int NO_EQ_CONSTRAINTS = 0;
+    const int NO_IN_CONSTRAINTS = 6;
+    const bool WITH_BOUNDS = true;
+
+    wbc::QuadraticProgram qp;
+    qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, WITH_BOUNDS);
+
+    // Task Jacobian
+    Eigen::MatrixXd A(6,6);
+    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
+         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
+         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
+         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
+         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
+         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
+    // Desired task space reference
+    Eigen::VectorXd y(6);
+    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
+
+    qp.H = A.transpose()*A;
+    qp.g = -(A.transpose()*y).transpose();
+
+    // Bounds: the first three variables carry a sentinel that can never become active, the last
+    // three carry a bound that the unconstrained solution violates.
+    qp.lower_x.setConstant(-1e4);
+    qp.upper_x.setConstant(+1e4);
+    qp.lower_x.tail(3).setConstant(-0.05);
+    qp.upper_x.tail(3).setConstant(+0.05);
+
+    // Inequalities: one-sided, the lower side is a sentinel.
+    qp.C = A;
+    qp.lower_y.setConstant(-1e5);
+    qp.upper_y = y + Eigen::VectorXd::Constant(NO_IN_CONSTRAINTS, 1e-1);
+
+    BOOST_CHECK(qp.isValid());
+    wbc::HierarchicalQP hqp;
+    hqp << qp;
+
+    // With the substitution enabled (the default), the 3 sentinel bounds, their 3 mirrored rows
+    // and the 6 sentinel inequality rows are dropped before Clarabel sees the problem.
+    ClarabelSolver solver;
+    BOOST_CHECK(solver.getInfinity() < 1e4 + 1.0);
+    Eigen::VectorXd out_reduced;
+    BOOST_CHECK_NO_THROW(solver.solve(hqp, out_reduced));
+    const int n_iter_reduced = solver.getNter();
+
+    // Disabling the substitution hands the sentinels to Clarabel as ordinary finite bounds.
+    ClarabelSolver solver_full;
+    solver_full.setInfinity(std::numeric_limits<double>::infinity());
+    Eigen::VectorXd out_full;
+    BOOST_CHECK_NO_THROW(solver_full.solve(hqp, out_full));
+    const int n_iter_full = solver_full.getNter();
+
+    // Same problem, so the same solution ...
+    for(uint j = 0; j < NO_JOINTS; ++j)
+        BOOST_CHECK_SMALL(out_reduced(j) - out_full(j), TOL);
+
+    // ... reached in no more iterations than the unreduced formulation needs.
+    BOOST_CHECK_LE(n_iter_reduced, n_iter_full);
+
+    // The bounds that are not sentinels must still be respected, and must actually be active,
+    // otherwise this test would pass even if every bound had been dropped.
+    for(uint j = 0; j < NO_JOINTS; ++j)
+        BOOST_CHECK((qp.lower_x(j)-TOL) <= out_reduced(j) && out_reduced(j) <= (qp.upper_x(j)+TOL));
+    BOOST_CHECK(out_reduced.tail(3).cwiseAbs().maxCoeff() > 0.05 - TOL);
 }
