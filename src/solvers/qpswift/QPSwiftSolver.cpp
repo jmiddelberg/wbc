@@ -8,6 +8,14 @@ QPSolverRegistry<QPSwiftSolver> QPSwiftSolver::reg("qpswift");
 
 QPSwiftSolver::QPSwiftSolver(){
     my_qp = 0;
+    // toQpSwift() unconditionally copies these onto the freshly created problem, so they have to
+    // hold qpSWIFT's own defaults rather than whatever was on the stack: an uninitialized maxit
+    // and verbose make the solver iterate (and print) without end.
+    options.maxit  = MAXIT;
+    options.reltol = RELTOL;
+    options.abstol = ABSTOL;
+    options.sigma  = SIGMA;
+    options.verbose = VERBOSE;
 }
 
 QPSwiftSolver::~QPSwiftSolver(){
@@ -36,6 +44,10 @@ void QPSwiftSolver::toQpSwift(const wbc::QuadraticProgram &qp){
         h.segment(2*qp.nin, n_dec) = qp.upper_x;        // map bounds as inequalities
         h.segment(2*qp.nin+n_dec, n_dec) = -qp.lower_x;
     }
+
+    // QP_SETUP_dense allocates a new problem, so the one of the previous call has to be released
+    if(my_qp)
+        QP_CLEANUP_dense(my_qp);
 
     my_qp = QP_SETUP_dense(n_dec,                   // Number decision variables
                            n_ineq,                  // Number inequality constraints
