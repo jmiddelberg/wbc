@@ -57,7 +57,8 @@ void ContactsFrictionSurfaceConstraint::update(RobotModelPtr robot_model){
                   -wy, -wx, -(wx+wy)*mu, -mu, -mu,  1;
 
             Eigen::VectorXd lb(row_skip), ub(row_skip);
-            lb.setConstant(-1e5);
+            // A friction cone facet is a half space a*f <= 0, so there is no lower bound
+            lb.setConstant(-INF);
             ub.setZero();
 
             lb_vec.segment(idx*row_skip,row_skip) = lb;

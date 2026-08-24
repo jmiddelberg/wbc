@@ -2,6 +2,7 @@
 #define WBC_SOLVERS_CLARABEL_SOLVER_HPP
 
 #include "../../core/QPSolver.hpp"
+#include "../../core/QuadraticProgram.hpp"
 
 #include <Eigen/Sparse>
 #include <clarabel.hpp>
@@ -65,17 +66,16 @@ public:
     /**
      * @brief Set the magnitude at which a constraint bound is considered absent.
      *
-     * QuadraticProgram has no way of marking a bound as unbounded, so the scenes fill unused
-     * bounds with large finite sentinel values (AccelerationSceneReducedTSID for example uses
-     * +/-1e4 as the default bound of every variable). For an active-set solver such a row is
-     * free, but Clarabel is an interior-point method: the row stays in the KKT system that is
-     * factorized in every iteration, and its distance to the iterate is orders of magnitude
-     * larger than that of the rows that can actually become active, which distorts the central
-     * path. Rows whose right-hand side reaches this value are therefore handed to Clarabel as
-     * an actual infinity so that its presolve removes them.
+     * Defaults to wbc::INF, the value the scenes use to mark a bound as absent. For an
+     * active-set solver such a row is free, but Clarabel is an interior-point method: the row
+     * stays in the KKT system that is factorized in every iteration, and its distance to the
+     * iterate is orders of magnitude larger than that of the rows that can actually become
+     * active, which distorts the central path. Rows whose right-hand side reaches this value are
+     * therefore handed to Clarabel as an actual infinity so that its presolve removes them.
      *
-     * Must be larger than any bound that can genuinely become active, otherwise that constraint
-     * is silently dropped. Set to infinity to disable the substitution.
+     * Lowering it below wbc::INF also discards bounds that are merely large but were meant to be
+     * enforced, so only do that if you know that no bound of that magnitude can become active.
+     * Set it to infinity to disable the substitution altogether.
      */
     void setInfinity(double value){ infinity = value; }
     double getInfinity() const { return infinity; }
@@ -92,7 +92,7 @@ protected:
 
     int _actual_n_iter;
 
-    double infinity = 1e4;          // see setInfinity()
+    double infinity = INF;          // see setInfinity()
 
     clarabel::DefaultSettings<double> settings = clarabel::DefaultSettings<double>::default_settings();
 };

@@ -13,8 +13,8 @@ namespace wbc{
         lb_vec.resize(na);
         ub_vec.resize(na);
 
-        lb_vec.setConstant(-10000);
-        ub_vec.setConstant(+10000);
+        lb_vec.setConstant(-INF);
+        ub_vec.setConstant(+INF);
         
         A_mtx.resize(na, nj+dim_contact*nc);
         A_mtx.setZero();

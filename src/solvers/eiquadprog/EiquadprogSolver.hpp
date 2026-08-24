@@ -60,6 +60,12 @@ protected:
 
     Eigen::MatrixXd _CI_mtx;
     Eigen::VectorXd _ci0_vec;
+
+    // Problem size the workspace was built for. The number of inequality rows depends on how many
+    // constraint sides are actually bounded, so it is not a function of nin/nq alone.
+    size_t _n_in = 0;
+    size_t _n_eq = 0;
+    size_t _n_var = 0;
 };
 
 }

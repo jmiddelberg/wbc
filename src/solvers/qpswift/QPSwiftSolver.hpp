@@ -35,6 +35,10 @@ protected:
     int n_bounds;       /** Number of lower/upper bounds on the decision variables*/
     QP *my_qp;
 
+    /** Number of one-sided inequality rows the given problem produces, i.e. the two-sided
+      * inequalities and bounds split up, minus the sides that are marked with wbc::INF */
+    uint countInequalities(const QuadraticProgram &qp);
+
     void toQpSwift(const QuadraticProgram &qp);
     void setOptions(settings opt){options=opt;}
 public:

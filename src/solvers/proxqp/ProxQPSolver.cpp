@@ -37,10 +37,22 @@ void ProxQPSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::Vect
     _l_vec.resize(n_in);
     _u_vec.resize(n_in);
 
+    // ProxQP has its own value for an unbounded constraint, so wbc::INF is mapped onto it. ProxQP
+    // then leaves the row out of its active set estimate instead of carrying it as a bound that is
+    // merely far away.
+    const double prox_inf = proxsuite::helpers::infinite_bound<double>::value();
+    auto toProxInf = [prox_inf](const Eigen::VectorXd& v){
+        return v.unaryExpr([prox_inf](double b){
+            if(b >= INF)  return  prox_inf;
+            if(b <= -INF) return -prox_inf;
+            return b;
+        }).eval();
+    };
+
     _C_mtx.topRows(qp.nin) = qp.C;
     _C_mtx.bottomRows(qp.lower_x.size()).setIdentity();
-    _l_vec << qp.lower_y, qp.lower_x;
-    _u_vec << qp.upper_y, qp.upper_x;
+    _l_vec << toProxInf(qp.lower_y), toProxInf(qp.lower_x);
+    _u_vec << toProxInf(qp.upper_y), toProxInf(qp.upper_x);
 
     if(!allow_warm_start)
         configured = false;

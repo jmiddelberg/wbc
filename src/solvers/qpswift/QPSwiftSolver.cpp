@@ -23,6 +23,27 @@ QPSwiftSolver::~QPSwiftSolver(){
         QP_CLEANUP_dense(my_qp);
 }
 
+/// qpSWIFT expects one-sided inequalities Gx <= h, so every two-sided constraint of the wbc problem
+/// has to be split into two rows. Sides marked with wbc::INF are simply not emitted: qpSWIFT is an
+/// interior-point method, so an unbounded row is not free - it stays in the KKT system that is
+/// factorized in every iteration and its barrier term pulls the iterate towards a bound that can
+/// never become active. Note that this makes the number of inequality rows problem dependent, which
+/// is why countInequalities() is evaluated on every call.
+uint QPSwiftSolver::countInequalities(const wbc::QuadraticProgram &qp){
+    uint n = 0;
+    for(int i = 0; i < qp.nin; i++){
+        if(hasUpperBound(qp.upper_y(i))) n++;
+        if(hasLowerBound(qp.lower_y(i))) n++;
+    }
+    if(qp.bounded){
+        for(int i = 0; i < qp.nq; i++){
+            if(hasUpperBound(qp.upper_x(i))) n++;
+            if(hasLowerBound(qp.lower_x(i))) n++;
+        }
+    }
+    return n;
+}
+
 void QPSwiftSolver::toQpSwift(const wbc::QuadraticProgram &qp){
 
     G.setZero();
@@ -32,18 +53,31 @@ void QPSwiftSolver::toQpSwift(const wbc::QuadraticProgram &qp){
     A = qp.A;
     b = qp.b;
 
-    // create inequalities matrix (inequalities constraints + bounds)
-    G.middleRows(0, qp.nin) = qp.C;
-    G.middleRows(qp.nin, qp.nin) = -qp.C;
-    h.segment(0, qp.nin) = qp.upper_y;
-    h.segment(qp.nin, qp.nin) = -qp.lower_y;
-
-    if(qp.bounded){
-        G.middleRows(2*qp.nin, n_dec).diagonal().setConstant(1.0);        // map bounds as inequalities
-        G.middleRows(2*qp.nin+n_dec, n_dec).diagonal().setConstant(-1.0);
-        h.segment(2*qp.nin, n_dec) = qp.upper_x;        // map bounds as inequalities
-        h.segment(2*qp.nin+n_dec, n_dec) = -qp.lower_x;
+    // create inequalities matrix (inequalities constraints + bounds), skipping unbounded sides
+    uint row = 0;
+    for(int i = 0; i < qp.nin; i++){
+        if(hasUpperBound(qp.upper_y(i))){                                // Cx <= upper_y
+            G.row(row) = qp.C.row(i);
+            h(row++) = qp.upper_y(i);
+        }
+        if(hasLowerBound(qp.lower_y(i))){                                // -Cx <= -lower_y
+            G.row(row) = -qp.C.row(i);
+            h(row++) = -qp.lower_y(i);
+        }
     }
+    if(qp.bounded){
+        for(int i = 0; i < qp.nq; i++){
+            if(hasUpperBound(qp.upper_x(i))){                            // x <= upper_x
+                G(row, i) = 1.0;
+                h(row++) = qp.upper_x(i);
+            }
+            if(hasLowerBound(qp.lower_x(i))){                            // -x <= -lower_x
+                G(row, i) = -1.0;
+                h(row++) = -qp.lower_x(i);
+            }
+        }
+    }
+    assert(row == (uint)n_ineq);
 
     // QP_SETUP_dense allocates a new problem, so the one of the previous call has to be released
     if(my_qp)
@@ -77,11 +111,18 @@ void QPSwiftSolver::solve(const wbc::HierarchicalQP &hierarchical_qp, Eigen::Vec
     if(!allow_warm_start)
         configured = false;
 
+    // The number of inequality rows depends on how many sides are actually bounded, so it can
+    // change between calls (e.g. when contacts are switched on or off) and the solver has to be
+    // set up again when it does.
+    const uint n_ineq_new = countInequalities(qp);
+    if(n_dec != (int)qp.nq || n_eq != (int)qp.neq || n_ineq != (int)n_ineq_new)
+        configured = false;
+
     if(!configured){
         // Count equality / inequality constraints
         n_dec = qp.nq;
         n_eq = qp.neq;
-        n_ineq = 2 * (qp.nin + qp.upper_x.size());
+        n_ineq = n_ineq_new;
 
         A.resize(n_eq, n_dec);
         b.resize(n_eq);

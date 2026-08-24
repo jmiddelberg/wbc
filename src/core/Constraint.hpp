@@ -2,6 +2,7 @@
 #define WBC_CORE_CONSTRAINT_HPP
 
 #include "RobotModel.hpp"
+#include "QuadraticProgram.hpp"
 #include <Eigen/Core>
 #include <memory>
 

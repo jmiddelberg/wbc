@@ -50,19 +50,32 @@ void QPOASESSolver::solve(const wbc::HierarchicalQP &hierarchical_qp, Eigen::Vec
     A.topRows(qp.A.rows()) = qp.A;
     A.bottomRows(qp.C.rows()) = qp.C;
 
+    // qpOASES has its own value for an unbounded constraint, so wbc::INF is mapped onto it.
+    // Bounds beyond qpOASES::INFTY are excluded from the working set logic, a large finite bound
+    // is not: it stays a candidate that the active set search has to consider in every iteration.
+    auto toQpOasesInf = [](const Eigen::VectorXd& v){
+        return v.unaryExpr([](double b){
+            if(b >= INF)  return  (double)qpOASES::INFTY;
+            if(b <= -INF) return -(double)qpOASES::INFTY;
+            return b;
+        }).eval();
+    };
+
     // create constraints vectors (merging equalities and inequalities vecs)
     Eigen::VectorXd lower_a(nc);
     Eigen::VectorXd upper_a(nc);
-    lower_a << qp.b, qp.lower_y;
-    upper_a << qp.b, qp.upper_y;
+    lower_a << qp.b, toQpOasesInf(qp.lower_y);
+    upper_a << qp.b, toQpOasesInf(qp.upper_y);
 
     // Joint space upper and lower bounds
+    lower_x = toQpOasesInf(qp.lower_x);
+    upper_x = toQpOasesInf(qp.upper_x);
     real_t* lb_ptr = 0;
     real_t* ub_ptr = 0;
-    if(qp.lower_x.size() > 0)
-        lb_ptr = (real_t*)qp.lower_x.data();
-    if(qp.upper_x.size() > 0)
-        ub_ptr = (real_t*)qp.upper_x.data();
+    if(lower_x.size() > 0)
+        lb_ptr = (real_t*)lower_x.data();
+    if(upper_x.size() > 0)
+        ub_ptr = (real_t*)upper_x.data();
 
     // Constraint space upper and lower bounds
     real_t* lbA_ptr = 0;

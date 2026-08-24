@@ -81,14 +81,24 @@ void DAQPSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::Vector
     _A.topRows(qp.neq) = qp.A;
     _A.bottomRows(qp.nin) = qp.C;
 
+    // DAQP has its own value for an unbounded constraint, so wbc::INF is mapped onto it. A bound
+    // beyond DAQP_INF is never a candidate for the working set, whereas a large finite one is.
+    auto toDaqpInf = [](const Eigen::VectorXd& v){
+        return v.unaryExpr([](double b){
+            if(b >= INF)  return  (double)DAQP_INF;
+            if(b <= -INF) return -(double)DAQP_INF;
+            return b;
+        }).eval();
+    };
+
     _b_upper.resize(n_cstr);
     _b_lower.resize(n_cstr);
-    _b_upper.head(n_bnd) = qp.upper_x;
-    _b_lower.head(n_bnd) = qp.lower_x;
+    _b_upper.head(n_bnd) = toDaqpInf(qp.upper_x);
+    _b_lower.head(n_bnd) = toDaqpInf(qp.lower_x);
     _b_upper.segment(n_bnd, qp.neq) = qp.b;
     _b_lower.segment(n_bnd, qp.neq) = qp.b;
-    _b_upper.tail(qp.nin) = qp.upper_y;
-    _b_lower.tail(qp.nin) = qp.lower_y;
+    _b_upper.tail(qp.nin) = toDaqpInf(qp.upper_y);
+    _b_lower.tail(qp.nin) = toDaqpInf(qp.lower_y);
 
     // All constraints are inequalities, apart from the equalities, which DAQP encodes as constraints
     // that are active from the start and may never leave the working set.

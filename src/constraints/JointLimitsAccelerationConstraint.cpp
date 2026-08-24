@@ -21,8 +21,10 @@ namespace wbc{
 
         lb_vec.resize(nv);
         ub_vec.resize(nv);
-        lb_vec.setConstant(-10000);
-        ub_vec.setConstant(+10000);
+        // Variables without a limit (floating base, contact wrenches, and any joint whose
+        // acceleration limit is not given) stay unbounded
+        lb_vec.setConstant(-INF);
+        ub_vec.setConstant(+INF);
 
         bool check_accelerations = true;
         bool check_velocities = false;
@@ -51,8 +53,8 @@ namespace wbc{
             // enforce joint acceleration and velocity limit
             if(check_accelerations)
             {
-                lb_vec(i+start_idx) = check_number(joint_limits.min.acceleration[i], -10000);
-                ub_vec(i+start_idx) = check_number(joint_limits.max.acceleration[i], +10000);
+                lb_vec(i+start_idx) = check_number(joint_limits.min.acceleration[i], -INF);
+                ub_vec(i+start_idx) = check_number(joint_limits.max.acceleration[i], +INF);
             }
             if(check_velocities)
             {

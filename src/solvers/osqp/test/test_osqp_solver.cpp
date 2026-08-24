@@ -198,3 +198,73 @@ BOOST_AUTO_TEST_CASE(solver_bounded)
         BOOST_CHECK((qp.lower_x(j)-1e-9) <= solver_output(j) && solver_output(j) <= (qp.upper_x(j)+1e-9));
 
 }
+
+BOOST_AUTO_TEST_CASE(solver_osqp_unbounded_constraints)
+{
+    // Bounds marked with wbc::INF are absent. The wrapper has to hand that to the solver in the way
+    // the solver expects, and doing so must not change the solution: solving the same problem with
+    // bounds that are finite but far too wide to ever become active has to give the same answer.
+    const int NO_JOINTS = 6;
+    const int NO_EQ_CONSTRAINTS = 2;
+    const int NO_IN_CONSTRAINTS = 6;
+
+    Eigen::MatrixXd A(6,6);
+    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
+         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
+         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
+         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
+         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
+         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
+    Eigen::VectorXd y(6);
+    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
+
+    // no_bound is either wbc::INF or a finite value that is far outside the feasible region
+    auto makeQP = [&](double no_bound){
+        wbc::QuadraticProgram qp;
+        qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, true);
+        qp.H = A.transpose()*A;
+        qp.H.diagonal().array() += 1e-6;
+        qp.g = -(A.transpose()*y).transpose();
+        qp.A = A.topRows(NO_EQ_CONSTRAINTS);
+        qp.b = y.head(NO_EQ_CONSTRAINTS);
+        qp.C = A;
+        // one-sided inequalities: no lower bound, upper bound partly active
+        qp.lower_y.setConstant(-no_bound);
+        qp.upper_y = y + Eigen::VectorXd::Constant(NO_IN_CONSTRAINTS, 1e-1);
+        // three free variables, three that are really bounded
+        qp.lower_x.setConstant(-no_bound);
+        qp.upper_x.setConstant(+no_bound);
+        qp.lower_x.tail(3).setConstant(-0.4);
+        qp.upper_x.tail(3).setConstant(+0.4);
+        return qp;
+    };
+
+    wbc::QuadraticProgram qp_inf = makeQP(wbc::INF);
+    wbc::QuadraticProgram qp_wide = makeQP(1e3);
+    BOOST_CHECK(qp_inf.isValid());
+
+    wbc::HierarchicalQP hqp_inf, hqp_wide;
+    hqp_inf << qp_inf;
+    hqp_wide << qp_wide;
+
+    Eigen::VectorXd out_inf, out_wide;
+    OsqpSolver solver_inf, solver_wide;
+    BOOST_CHECK_NO_THROW(solver_inf.solve(hqp_inf, out_inf));
+    BOOST_CHECK_NO_THROW(solver_wide.solve(hqp_wide, out_wide));
+
+    // OSQP is a first-order method, its default termination tolerance is around 1e-3, so the two
+    // runs agree only to that accuracy and not to the 1e-4 the second-order solvers hold to
+    const double TOL_SOLUTION = 5e-3;
+    BOOST_CHECK_EQUAL(out_inf.size(), NO_JOINTS);
+    for(uint j = 0; j < NO_JOINTS; ++j)
+        BOOST_CHECK_SMALL(out_inf(j) - out_wide(j), TOL_SOLUTION);
+
+    // the bounds that are not marked as absent must still be enforced ...
+    for(uint j = 3; j < NO_JOINTS; ++j)
+        BOOST_CHECK((qp_inf.lower_x(j)-TOL_SOLUTION) <= out_inf(j) && out_inf(j) <= (qp_inf.upper_x(j)+TOL_SOLUTION));
+    // ... and at least one of them has to be active, otherwise dropping every bound would pass too
+    BOOST_CHECK(out_inf.tail(3).cwiseAbs().maxCoeff() > 0.4 - 1e-2);
+
+    // the equality constraints are never affected by the substitution
+    BOOST_CHECK_SMALL((qp_inf.A*out_inf - qp_inf.b).cwiseAbs().maxCoeff(), TOL_SOLUTION);
+}

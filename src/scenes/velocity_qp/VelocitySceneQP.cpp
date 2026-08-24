@@ -71,10 +71,10 @@ const HierarchicalQP& VelocitySceneQP::update(){
     // Variable order: (qd)
     QuadraticProgram &qp = hqp[0];
     qp.resize(nj, total_eqs, total_ineqs, has_bounds);
-    qp.lower_y.setConstant(-99999);
-    qp.upper_y.setConstant(+99999);
-    qp.lower_x.setConstant(-99999);
-    qp.upper_x.setConstant(+99999);
+    qp.lower_y.setConstant(-INF);
+    qp.upper_y.setConstant(+INF);
+    qp.lower_x.setConstant(-INF);
+    qp.upper_x.setConstant(+INF);
     qp.A.setZero();
 
     total_eqs = total_ineqs = 0;

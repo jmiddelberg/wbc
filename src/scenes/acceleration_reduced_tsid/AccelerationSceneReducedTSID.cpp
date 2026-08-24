@@ -106,8 +106,8 @@ const HierarchicalQP& AccelerationSceneReducedTSID::update(){
     qp.resize(nj+ncp*dim_contact+ns, total_eqs, total_ineqs, has_bounds);
     qp.A.setZero();
     qp.C.setZero();
-    qp.lower_x.setConstant(-10000);   // bounds
-    qp.upper_x.setConstant(+10000);   // bounds
+    qp.lower_x.setConstant(-INF);     // bounds, overwritten below where a limit exists
+    qp.upper_x.setConstant(+INF);     // bounds, overwritten below where a limit exists
     qp.lower_y.setZero(); // inequalities
     qp.upper_y.setZero(); // inequalities
 

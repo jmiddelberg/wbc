@@ -18,8 +18,9 @@ namespace wbc{
         lb_vec.resize(nj);
         ub_vec.resize(nj);
 
-        lb_vec.setConstant(-999999);
-        ub_vec.setConstant(+999999);
+        // The floating base velocities are not limited
+        lb_vec.setConstant(-INF);
+        ub_vec.setConstant(+INF);
         
         auto position = robot_model->getQ().tail(robot_model->na());
         joint_limits = robot_model->jointLimits();

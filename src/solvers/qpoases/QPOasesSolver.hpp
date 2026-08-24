@@ -71,6 +71,7 @@ protected:
     qpOASES::returnValue ret_val;
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> H;
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> A;
+    Eigen::VectorXd lower_x, upper_x;  /** Variable bounds with wbc::INF mapped to qpOASES::INFTY */
     size_t nc;
     size_t nv;
 };

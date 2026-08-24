@@ -7,6 +7,34 @@
 namespace wbc{
 
 /**
+ * @brief Magnitude that marks a constraint bound as absent (unbounded).
+ *
+ * QuadraticProgram stores every bound as a plain double and has no separate way of saying that a
+ * constraint is one-sided or that a variable is free. Scenes and constraints therefore fill unused
+ * bounds with this value instead of an arbitrary large number, so that the solver wrappers can
+ * recognise them and hand them to their solver in whatever way that solver expects: some accept an
+ * infinity of their own (OSQP, qpOASES, ProxQP, DAQP), some remove the row (Clarabel, qpSWIFT,
+ * eiquadprog) and some switch the constraint off with a mask (HPIPM).
+ *
+ * A large finite value is used rather than std::numeric_limits<double>::infinity() on purpose: code
+ * that does not know about the convention degrades to a very loose but finite bound, whereas an
+ * actual infinity would silently turn into NaN inside most solvers.
+ *
+ * Use isUnbounded() / hasLowerBound() / hasUpperBound() to test for it, never an equality
+ * comparison - a bound is considered absent as soon as it reaches this magnitude.
+ */
+constexpr double INF = 1e20;
+
+/** True if the given lower bound is absent, i.e. the constraint is not bounded from below */
+inline bool hasLowerBound(double lower){ return lower > -INF; }
+
+/** True if the given upper bound is absent, i.e. the constraint is not bounded from above */
+inline bool hasUpperBound(double upper){ return upper < INF; }
+
+/** True if the given bound is absent on the side it is used for */
+inline bool isUnbounded(double bound){ return bound <= -INF || bound >= INF; }
+
+/**
  * @brief Describes a quadratic program of the form
  *  \f[
  *        \begin{array}{ccc}

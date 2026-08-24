@@ -25,9 +25,28 @@ void EiquadprogSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::
     const wbc::QuadraticProgram &qp = hierarchical_qp[0];
     assert(qp.isValid());
 
-    size_t n_in = (qp.bounded ? (2 * (qp.nin + qp.nq)) : (2*qp.nin));
+    // Eiquadprog expects one-sided inequalities CI*x + ci0 >= 0, so every two-sided constraint has
+    // to be split into two rows. Sides marked with wbc::INF are not emitted: eiquadprog has no
+    // notion of an infinite bound and would propagate it into its dual variables, and even a large
+    // finite bound is not free, since every row enters the CI*x product of every iteration.
+    size_t n_in = 0;
+    for(int i = 0; i < qp.nin; i++){
+        if(hasLowerBound(qp.lower_y(i))) n_in++;
+        if(hasUpperBound(qp.upper_y(i))) n_in++;
+    }
+    if(qp.bounded){
+        for(int i = 0; i < qp.nq; i++){
+            if(hasLowerBound(qp.lower_x(i))) n_in++;
+            if(hasUpperBound(qp.upper_x(i))) n_in++;
+        }
+    }
     size_t n_eq = qp.neq;
     size_t n_var = qp.nq;
+
+    // The number of rows depends on how many sides are actually bounded, so it can change between
+    // calls (e.g. when contacts are switched on or off) and the workspace has to be rebuilt
+    if(_n_in != n_in || _n_eq != n_eq || _n_var != n_var)
+        configured = false;
 
     if(!configured) 
     {
@@ -40,21 +59,39 @@ void EiquadprogSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::
         _CI_mtx.resize(n_in, n_var);
         _ci0_vec.resize(n_in);
 
+        _n_in = n_in;
+        _n_eq = n_eq;
+        _n_var = n_var;
         configured = true;
     }
 
-    _CI_mtx.resize(n_in,n_var);
-    _ci0_vec.resize(n_in);
     _CI_mtx.setZero();
 
-    // create inequalities constraint matric (inequalities + bounds)
-    _CI_mtx.middleRows(0, qp.nin) = qp.C;
-    _CI_mtx.middleRows(qp.nin, qp.nin) = -qp.C;
-    if(qp.bounded) {
-        _CI_mtx.middleRows(2*qp.nin, n_var).diagonal().setConstant(1.0);        // map bounds as inequalities
-        _CI_mtx.middleRows(2*qp.nin+n_var, n_var).diagonal().setConstant(-1.0);
+    // create inequalities constraint matrix (inequalities + bounds), skipping unbounded sides
+    size_t row = 0;
+    for(int i = 0; i < qp.nin; i++){
+        if(hasLowerBound(qp.lower_y(i))){                    // Cx - lower_y >= 0
+            _CI_mtx.row(row) = qp.C.row(i);
+            _ci0_vec(row++) = -qp.lower_y(i);
+        }
+        if(hasUpperBound(qp.upper_y(i))){                    // -Cx + upper_y >= 0
+            _CI_mtx.row(row) = -qp.C.row(i);
+            _ci0_vec(row++) = qp.upper_y(i);
+        }
     }
-    _ci0_vec << -qp.lower_y, qp.upper_y, -qp.lower_x, qp.upper_x;
+    if(qp.bounded){
+        for(int i = 0; i < qp.nq; i++){
+            if(hasLowerBound(qp.lower_x(i))){                // x - lower_x >= 0
+                _CI_mtx(row, i) = 1.0;
+                _ci0_vec(row++) = -qp.lower_x(i);
+            }
+            if(hasUpperBound(qp.upper_x(i))){                // -x + upper_x >= 0
+                _CI_mtx(row, i) = -1.0;
+                _ci0_vec(row++) = qp.upper_x(i);
+            }
+        }
+    }
+    assert(row == n_in);
 
     namespace eq = eiquadprog::solvers;
 
