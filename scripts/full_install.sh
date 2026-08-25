@@ -68,8 +68,17 @@ cmake ..
 make -j8 && sudo make install && cd ../.. 
 
 # proxQP
-git clone --recurse-submodules https://github.com/Simple-Robotics/proxsuite.git proxqp
+# check out the same proxsuite version as acados, otherwise the two copies collide:
+# proxsuite is header-only, so both wbc-solvers-proxqp and acados' libproxsuite_c
+# end up carrying their own compiled copy of the same C++ symbols, and when both are
+# loaded into one process the dynamic linker picks a single winner for all callers.
+# acados pins FranekStark's fork of 0.7.3, which carries a not-yet-merged fix for a
+# preconditioner bug that corrupts the dense backend's box-constraint multipliers
+# when a QP object is re-solved.
+git clone --branch fix/dense-box-i-scaled-not-reset-on-keep --recurse-submodules https://github.com/FranekStark/proxsuite.git proxqp
 cd proxqp
+git checkout 0bd12daa6c54f22361744fcaa2ca5228e7f719d8
+git submodule update --recursive --init
 mkdir build && cd build
 cmake .. -DBUILD_TESTING=OFF -DBUILD_PYTHON_INTERFACE=OFF -DBUILD_WITH_VECTORIZATION_SUPPORT=OFF
 make -j8 && sudo make install && cd ../..
