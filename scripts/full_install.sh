@@ -1,5 +1,5 @@
 #!/bin/sh
-sudo apt-get -y install git cmake build-essential libboost-system-dev libboost-program-options-dev libboost-thread-dev libboost-test-dev pkg-config libeigen3-dev libboost-filesystem-dev
+sudo apt-get -y install git cmake build-essential libboost-system-dev libboost-program-options-dev libboost-thread-dev libboost-test-dev pkg-config libeigen3-dev libboost-filesystem-dev libsimde-dev
 
 # cmake makros
 git clone https://github.com/rock-core/base-cmake.git   
@@ -80,7 +80,9 @@ cd proxqp
 git checkout 0bd12daa6c54f22361744fcaa2ca5228e7f719d8
 git submodule update --recursive --init
 mkdir build && cd build
-cmake .. -DBUILD_TESTING=OFF -DBUILD_PYTHON_INTERFACE=OFF -DBUILD_WITH_VECTORIZATION_SUPPORT=OFF
+# ON so that the proxsuite-vectorized target exists; wbc-solvers-proxqp pairs it
+# with the architecture flags simde needs (see src/solvers/proxqp/CMakeLists.txt)
+cmake .. -DBUILD_TESTING=OFF -DBUILD_PYTHON_INTERFACE=OFF -DBUILD_WITH_VECTORIZATION_SUPPORT=ON
 make -j8 && sudo make install && cd ../..
 
 # OSQP
