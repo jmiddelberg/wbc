@@ -26,9 +26,170 @@ static std::string solverStatusToString(clarabel::SolverStatus status){
     }
 }
 
+// Clarabel.rs pins the values of the linear solver enum that crosses the FFI boundary
+// (AUTO = 0, QDLDL = 1, FAER = 2, MKL = 3, PANUA = 4), while the enum in
+// clarabel/cpp/DefaultSettings.hpp only declares the methods that were compiled in and numbers
+// them consecutively. Both agree as long as the cargo features are enabled in that same order,
+// which is what the assertions below check: a build in which they disagree (e.g. pardiso-panua
+// without faer-sparse) fails to compile instead of silently selecting the wrong method.
+#ifdef FEATURE_FAER_SPARSE
+static_assert(static_cast<int>(clarabel::ClarabelDirectSolveMethods::FAER) == 2,
+              "clarabel::ClarabelDirectSolveMethods::FAER does not have the value expected by Clarabel.rs");
+#endif
+#ifdef FEATURE_PARDISO_MKL
+static_assert(static_cast<int>(clarabel::ClarabelDirectSolveMethods::PARDISO_MKL) == 3,
+              "clarabel::ClarabelDirectSolveMethods::PARDISO_MKL does not have the value expected by Clarabel.rs. "
+              "Clarabel has to be built with the faer-sparse feature as well");
+#endif
+#ifdef FEATURE_PARDISO_PANUA
+static_assert(static_cast<int>(clarabel::ClarabelDirectSolveMethods::PARDISO_PANUA) == 4,
+              "clarabel::ClarabelDirectSolveMethods::PARDISO_PANUA does not have the value expected by Clarabel.rs. "
+              "Clarabel has to be built with the faer-sparse and pardiso-mkl features as well");
+#endif
+
+static clarabel::ClarabelDirectSolveMethods toClarabelMethod(ClarabelLinearSolver method){
+    switch(method){
+        case clarabel_linsolver_auto:            return clarabel::ClarabelDirectSolveMethods::AUTO;
+        case clarabel_linsolver_qdldl:           return clarabel::ClarabelDirectSolveMethods::QDLDL;
+#ifdef FEATURE_FAER_SPARSE
+        case clarabel_linsolver_faer:            return clarabel::ClarabelDirectSolveMethods::FAER;
+#endif
+#ifdef FEATURE_PARDISO_MKL
+        case clarabel_linsolver_pardiso_mkl:     return clarabel::ClarabelDirectSolveMethods::PARDISO_MKL;
+#endif
+#ifdef FEATURE_PARDISO_PANUA
+        case clarabel_linsolver_pardiso_panua:   return clarabel::ClarabelDirectSolveMethods::PARDISO_PANUA;
+#endif
+        default: break;
+    }
+    throw std::runtime_error("Clarabel linear system solver '" + ClarabelSolver::linearSolverName(method) +
+                             "' is not available in this build");
+}
+
+static ClarabelLinearSolver fromClarabelMethod(clarabel::ClarabelDirectSolveMethods method){
+    switch(method){
+        case clarabel::ClarabelDirectSolveMethods::AUTO:            return clarabel_linsolver_auto;
+        case clarabel::ClarabelDirectSolveMethods::QDLDL:           return clarabel_linsolver_qdldl;
+#ifdef FEATURE_FAER_SPARSE
+        case clarabel::ClarabelDirectSolveMethods::FAER:            return clarabel_linsolver_faer;
+#endif
+#ifdef FEATURE_PARDISO_MKL
+        case clarabel::ClarabelDirectSolveMethods::PARDISO_MKL:     return clarabel_linsolver_pardiso_mkl;
+#endif
+#ifdef FEATURE_PARDISO_PANUA
+        case clarabel::ClarabelDirectSolveMethods::PARDISO_PANUA:   return clarabel_linsolver_pardiso_panua;
+#endif
+    }
+    throw std::runtime_error("Clarabel reported the unknown linear system solver " +
+                             std::to_string(static_cast<int>(method)));
+}
+
+// Cargo feature and wbc cmake option that a linear system solver requires, used to tell the user
+// what to do when the requested method is not part of this build.
+static std::string linearSolverBuildHint(ClarabelLinearSolver method){
+    switch(method){
+        case clarabel_linsolver_faer:
+            return "the 'faer-sparse' cargo feature and -DCLARABEL_FEATURE_FAER_SPARSE=ON";
+        case clarabel_linsolver_pardiso_mkl:
+            return "the 'pardiso-mkl' cargo feature and -DCLARABEL_FEATURE_PARDISO_MKL=ON";
+        case clarabel_linsolver_pardiso_panua:
+            return "the 'pardiso-panua' cargo feature and -DCLARABEL_FEATURE_PARDISO_PANUA=ON";
+        default:
+            return "";
+    }
+}
+
 ClarabelSolver::ClarabelSolver() : _actual_n_iter(0)
 {
     settings.verbose = false;
+    settings.direct_solve_method = toClarabelMethod(linear_solver);
+}
+
+void ClarabelSolver::setOptions(clarabel::DefaultSettings<double> opt){
+    settings = opt;
+    // Keep getLinearSolver() in sync with the options that are actually in effect
+    linear_solver = fromClarabelMethod(opt.direct_solve_method);
+}
+
+void ClarabelSolver::setLinearSolver(ClarabelLinearSolver method){
+    if(!linearSolverAvailable(method)){
+        std::string available;
+        for(const std::string& name : availableLinearSolvers())
+            available += (available.empty() ? "" : ", ") + name;
+        throw std::runtime_error("Clarabel linear system solver '" + linearSolverName(method) + "' is not available "
+                                 "in this build (available: " + available + "). Rebuild libclarabel_c with " +
+                                 linearSolverBuildHint(method) + ", see "
+                                 "https://clarabel.org/stable/user_guide_linsolvers/");
+    }
+    linear_solver = method;
+    settings.direct_solve_method = toClarabelMethod(method);
+}
+
+void ClarabelSolver::setLinearSolver(const std::string& method){
+    setLinearSolver(linearSolverFromName(method));
+}
+
+bool ClarabelSolver::linearSolverAvailable(ClarabelLinearSolver method){
+    switch(method){
+        case clarabel_linsolver_auto:
+        case clarabel_linsolver_qdldl:
+            return true;
+        case clarabel_linsolver_faer:
+#ifdef FEATURE_FAER_SPARSE
+            return true;
+#else
+            return false;
+#endif
+        case clarabel_linsolver_pardiso_mkl:
+#ifdef FEATURE_PARDISO_MKL
+            return true;
+#else
+            return false;
+#endif
+        case clarabel_linsolver_pardiso_panua:
+#ifdef FEATURE_PARDISO_PANUA
+            return true;
+#else
+            return false;
+#endif
+    }
+    return false;
+}
+
+std::vector<std::string> ClarabelSolver::availableLinearSolvers(){
+    const ClarabelLinearSolver all[] = {clarabel_linsolver_auto,
+                                        clarabel_linsolver_qdldl,
+                                        clarabel_linsolver_faer,
+                                        clarabel_linsolver_pardiso_mkl,
+                                        clarabel_linsolver_pardiso_panua};
+    std::vector<std::string> names;
+    for(ClarabelLinearSolver method : all){
+        if(linearSolverAvailable(method))
+            names.push_back(linearSolverName(method));
+    }
+    return names;
+}
+
+std::string ClarabelSolver::linearSolverName(ClarabelLinearSolver method){
+    switch(method){
+        case clarabel_linsolver_auto:          return "auto";
+        case clarabel_linsolver_qdldl:         return "qdldl";
+        case clarabel_linsolver_faer:          return "faer";
+        case clarabel_linsolver_pardiso_mkl:   return "pardiso-mkl";
+        case clarabel_linsolver_pardiso_panua: return "pardiso-panua";
+    }
+    throw std::invalid_argument("Invalid Clarabel linear system solver " +
+                                std::to_string(static_cast<int>(method)));
+}
+
+ClarabelLinearSolver ClarabelSolver::linearSolverFromName(const std::string& name){
+    if(name == "auto")          return clarabel_linsolver_auto;
+    if(name == "qdldl")         return clarabel_linsolver_qdldl;
+    if(name == "faer")          return clarabel_linsolver_faer;
+    if(name == "pardiso-mkl")   return clarabel_linsolver_pardiso_mkl;
+    if(name == "pardiso-panua") return clarabel_linsolver_pardiso_panua;
+    throw std::invalid_argument("Unknown Clarabel linear system solver '" + name + "'. Valid names are "
+                                "auto, qdldl, faer, pardiso-mkl and pardiso-panua");
 }
 
 /// solve problem:
@@ -121,6 +282,9 @@ void ClarabelSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::Ve
     solver.solve();
 
     clarabel::DefaultSolution<double> solution = solver.solution();
+
+    // Which linear system solver clarabel_linsolver_auto resolved to
+    _linsolver_used = fromClarabelMethod(solver.info().linsolver.name);
 
     solver_output.resize(n_var);
     solver_output = solution.x;

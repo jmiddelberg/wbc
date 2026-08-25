@@ -30,14 +30,78 @@ if(NOT CLARABEL_INCLUDE_DIR OR NOT CLARABEL_LIBRARY)
 endif()
 message(STATUS "Found Clarabel: ${CLARABEL_LIBRARY} (headers: ${CLARABEL_INCLUDE_DIR})")
 
+# Which linear system solvers Clarabel offers, and the layout of its settings struct, depend on the
+# cargo features libclarabel_c was built with, so the C++ side has to be compiled with the matching
+# FEATURE_* macros (Clarabel.cpp's own CMakeLists does this for in-tree builds). Since we consume a
+# pre-built library, the features have to be declared here. The defaults match a plain
+# `cargo build --release` of the rust wrapper, which provides the qdldl solver only.
+option(CLARABEL_FEATURE_FAER_SPARSE   "libclarabel_c was built with the faer-sparse cargo feature (adds the 'faer' linear system solver)"           OFF)
+option(CLARABEL_FEATURE_PARDISO_MKL   "libclarabel_c was built with the pardiso-mkl cargo feature (adds the 'pardiso-mkl' linear system solver)"     OFF)
+option(CLARABEL_FEATURE_PARDISO_PANUA "libclarabel_c was built with the pardiso-panua cargo feature (adds the 'pardiso-panua' linear system solver)" OFF)
+option(CLARABEL_FEATURE_SDP           "libclarabel_c was built with one of the sdp cargo features"                                                   OFF)
+
+# A mismatch between the options above and the library silently changes the meaning of clarabel's
+# settings struct, so warn about the cases that can be told apart by looking at the library.
+function(check_clarabel_feature option pattern feature)
+    file(STRINGS ${CLARABEL_LIBRARY} matches REGEX "${pattern}" LIMIT_COUNT 1)
+    if(${option} AND NOT matches)
+        message(WARNING
+            "-D${option}=ON was given, but ${CLARABEL_LIBRARY} contains no trace of the '${feature}' "
+            "cargo feature. If it really was not built with that feature, the settings passed to Clarabel "
+            "will be misinterpreted. Rebuild it with 'cargo build --release --features clarabel/${feature}'.")
+    elseif(NOT ${option} AND matches)
+        message(WARNING
+            "${CLARABEL_LIBRARY} looks like it was built with the '${feature}' cargo feature, but "
+            "${option} is OFF, so the settings passed to Clarabel may be misinterpreted and the linear "
+            "system solvers of that feature are not selectable. Pass -D${option}=ON.")
+    endif()
+endfunction()
+
+# The Pardiso variants share the pardiso-wrapper crate, so they cannot be told apart by their symbols
+check_clarabel_feature(CLARABEL_FEATURE_FAER_SPARSE "faer_ldl" "faer-sparse")
+if(CLARABEL_FEATURE_PARDISO_MKL OR CLARABEL_FEATURE_PARDISO_PANUA)
+    check_clarabel_feature(CLARABEL_FEATURE_PARDISO_MKL "pardiso" "pardiso-mkl")
+else()
+    check_clarabel_feature(CLARABEL_FEATURE_PARDISO_PANUA "pardiso" "pardiso-panua")
+endif()
+check_clarabel_feature(CLARABEL_FEATURE_SDP "chordal" "sdp")
+
+set(CLARABEL_FEATURE_DEFINITIONS "")
+if(CLARABEL_FEATURE_FAER_SPARSE)
+    list(APPEND CLARABEL_FEATURE_DEFINITIONS FEATURE_FAER_SPARSE)
+endif()
+if(CLARABEL_FEATURE_PARDISO_MKL)
+    list(APPEND CLARABEL_FEATURE_DEFINITIONS FEATURE_PARDISO_MKL)
+endif()
+if(CLARABEL_FEATURE_PARDISO_PANUA)
+    list(APPEND CLARABEL_FEATURE_DEFINITIONS FEATURE_PARDISO_PANUA)
+endif()
+if(CLARABEL_FEATURE_PARDISO_MKL OR CLARABEL_FEATURE_PARDISO_PANUA)
+    list(APPEND CLARABEL_FEATURE_DEFINITIONS FEATURE_PARDISO_ANY)
+endif()
+if(CLARABEL_FEATURE_SDP)
+    list(APPEND CLARABEL_FEATURE_DEFINITIONS FEATURE_SDP)
+endif()
+if(CLARABEL_FEATURE_DEFINITIONS)
+    message(STATUS "Clarabel features: ${CLARABEL_FEATURE_DEFINITIONS}")
+endif()
+
 set(SOURCES ClarabelSolver.cpp)
 set(HEADERS ClarabelSolver.hpp)
 
 list(APPEND PKGCONFIG_REQUIRES wbc-core)
 string (REPLACE ";" " " PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES}")
 
+# Anything that includes ClarabelSolver.hpp pulls in clarabel.hpp and therefore needs the same
+# feature macros as this library
+foreach(definition ${CLARABEL_FEATURE_DEFINITIONS})
+    list(APPEND PKGCONFIG_CFLAGS -D${definition})
+endforeach()
+string (REPLACE ";" " " PKGCONFIG_CFLAGS "${PKGCONFIG_CFLAGS}")
+
 add_library(${TARGET_NAME} SHARED ${SOURCES} ${HEADERS})
 target_include_directories(${TARGET_NAME} PUBLIC ${CLARABEL_INCLUDE_DIR})
+target_compile_definitions(${TARGET_NAME} PUBLIC ${CLARABEL_FEATURE_DEFINITIONS})
 target_link_libraries(${TARGET_NAME} PUBLIC
                       wbc-core
                       Eigen3::Eigen

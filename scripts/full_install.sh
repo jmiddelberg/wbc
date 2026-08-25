@@ -94,14 +94,17 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # committed in include/) and copy the headers + shared library into /usr/local manually.
 git clone --branch v0.11.1 --recurse-submodules https://github.com/oxfordcontrol/Clarabel.cpp.git
 cd Clarabel.cpp/rust_wrapper
-cargo build --release
+# The faer-sparse feature adds the multi-threaded 'faer' linear system solver, which can then be
+# picked with ClarabelSolver::setLinearSolver(), see
+# https://clarabel.org/stable/user_guide_linsolvers/. It is implemented in Rust and needs no
+# further dependencies, unlike the Pardiso backends, which are therefore not enabled here.
+# Features of the clarabel crate have to be passed through the wrapper crate with a 'clarabel/'
+# prefix, and wbc has to be configured with the matching -DCLARABEL_FEATURE_* option below.
+cargo build --release --features clarabel/faer-sparse
 cd ../..
 sudo cp -r Clarabel.cpp/include /usr/local/include/clarabel
 sudo cp Clarabel.cpp/rust_wrapper/target/release/libclarabel_c.so /usr/local/lib/
 
-# WBC
-mkdir wbc/build && cd wbc/build
-cmake .. -DROBOT_MODEL_RBDL=ON -DSOLVER_PROXQP=ON -DSOLVER_EIQUADPROG=ON -DSOLVER_QPSWIFT=ON -DSOLVER_OSQP=ON -DSOLVER_CLARABEL=ON -DCMAKE_BUILD_TYPE=RELEASE
 # DAQP
 git clone https://github.com/darnstrom/daqp.git
 cd daqp
@@ -112,7 +115,7 @@ make -j8 && sudo make install && cd ../..
 
 # WBC
 mkdir wbc/build && cd wbc/build
-cmake .. -DROBOT_MODEL_RBDL=ON -DSOLVER_PROXQP=ON -DSOLVER_EIQUADPROG=ON -DSOLVER_QPSWIFT=ON -DSOLVER_OSQP=ON -DSOLVER_DAQP=ON -DCMAKE_BUILD_TYPE=RELEASE
+cmake .. -DROBOT_MODEL_RBDL=ON -DSOLVER_PROXQP=ON -DSOLVER_EIQUADPROG=ON -DSOLVER_QPSWIFT=ON -DSOLVER_OSQP=ON -DSOLVER_CLARABEL=ON -DCLARABEL_FEATURE_FAER_SPARSE=ON -DSOLVER_DAQP=ON -DCMAKE_BUILD_TYPE=RELEASE
 make -j8 && sudo make install && cd ..
 
 sudo ldconfig
