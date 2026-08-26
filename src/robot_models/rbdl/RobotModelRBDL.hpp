@@ -36,7 +36,7 @@ public:
     /** @brief Update kinematics/dynamics.
       * @param joint_positions Positions of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
       * @param joint_velocities Velocities of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
-      * @param joint_acceleration Velocities of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
+      * @param joint_accelerations Accelerations of all independent joints. These have to be in the same order as used by the model (alphabetic). For getting the joint order, call jointNames().
       * @param fb_pose Pose of the floating base in world coordinates
       * @param fb_twist Twist of the floating base in "local-world-aligned" (hybrid) representation, i.e., with respect to a frame attached to the floating base (robot root),
       * but aligned to world coordinates
@@ -64,14 +64,12 @@ public:
 
     /** @brief Returns the Space Jacobian for the kinematic chain between root and the tip frame as full body Jacobian. Size of the Jacobian will be 6 x nJoints, where nJoints is the number of joints of the whole robot. The order of the
       * columns will be the same as the joint order of the robot. The columns that correspond to joints that are not part of the kinematic chain will have only zeros as entries.
-      * @param root_frame Root frame of the chain. Has to be a valid link in the robot model.
       * @param frame_id Tip frame of the chain. Has to be a valid link in the robot model.
       */
     virtual const Eigen::MatrixXd &spaceJacobian(const std::string &frame_id);
 
     /** @brief Returns the Body Jacobian for the kinematic chain between root and the tip frame as full body Jacobian. Size of the Jacobian will be 6 x nJoints, where nJoints is the number of joints of the whole robot. The order of the
       * columns will be the same as the joint order of the robot. The columns that correspond to joints that are not part of the kinematic chain will have only zeros as entries.
-      * @param root_frame Root frame of the chain. Has to be a valid link in the robot model.
       * @param frame_id Tip frame of the chain. Has to be a valid link in the robot model.
       */
     virtual const Eigen::MatrixXd &bodyJacobian(const std::string &frame_id);
@@ -84,7 +82,6 @@ public:
     virtual const Eigen::MatrixXd &comJacobian();
 
     /** @brief Returns the spatial acceleration bias, i.e. the term Jdot*qdot
-      * @param root_frame Root frame of the chain. Has to be a valid link in the robot model.
       * @param frame_id Tip frame of the chain. Has to be a valid link in the robot model.
       * @return A Nx1 vector, where N is the number of robot joints
       */

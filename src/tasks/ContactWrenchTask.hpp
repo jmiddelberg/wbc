@@ -13,7 +13,6 @@ public:
 
     /**
      * @brief Compute the cartesian task matrix A
-     * @param robot_model Pointer to the robot model from which get the state and compute the cartesian task matrix A
      */
     virtual void update() override;
 
