@@ -1,7 +1,7 @@
 #include "OsqpSolver.hpp"
 #include "../../core/QuadraticProgram.hpp"
 #include <chrono>
-#include <osqp/osqp_api_constants.h>
+#include <osqp_api_constants.h>
 
 namespace wbc {
 
