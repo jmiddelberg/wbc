@@ -80,7 +80,7 @@ public:
 
     /**
      * @brief Update the wbc scene and return the (updated) optimization problem
-     * @param ctrl_output Control solution that fulfill the given tasks as good as possible
+     * @return The (updated) optimization problem
      */
     virtual const HierarchicalQP& update();
 

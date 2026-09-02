@@ -17,7 +17,6 @@ public:
 
     /**
      * @brief Compute the joint task matrix A
-     * @param robot_model Pointer to the robot model from which get the state and compute the joint task matrix A
      */
     virtual void update() override;
 

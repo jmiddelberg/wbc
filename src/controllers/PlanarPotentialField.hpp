@@ -28,7 +28,8 @@ public:
 
     /**
      * @brief Compute control update according to potential field equation
-     * @param gradient Computed gradient. Will be resized if gradient.size() != dimension.
+     * @param position Current position
+     * @return Computed gradient
      */
     virtual const Eigen::VectorXd& update(const Eigen::VectorXd& position);
 
