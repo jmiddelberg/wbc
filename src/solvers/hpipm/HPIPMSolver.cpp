@@ -108,9 +108,14 @@ void HPIPMSolver::solve(const HierarchicalQP &hierarchical_qp, Eigen::VectorXd &
         qp_in = dense_qp_in_create(config, &dims);
         opts = dense_qp_opts_create(config, &dims);
 
+        // The mode has to go through opts_set: it is only a preset, and writing hpipm_opts->mode
+        // directly applies none of its parameters, leaving acados' BALANCE defaults in place. With
+        // those (no split primal/dual step) the walking WBC QP turns into NaN close to convergence.
+        // opts_set re-applies acados' own tolerances and iteration limit on top of the preset.
+        config->opts_set(config, opts, "hpipm_mode", (void*)"SPEED");
+
         dense_qp_hpipm_opts *hpipm_opts = (dense_qp_hpipm_opts *)opts;
         hpipm_opts->hpipm_opts->warm_start = 0;
-        hpipm_opts->hpipm_opts->mode = SPEED;
 
         if(qp_out)
             free(qp_out);
@@ -173,14 +178,16 @@ void HPIPMSolver::setOptions(std::string &field,  void *value){
     d_dense_qp_ipm_arg_set((char*)field.c_str(), value, hpipm_opts->hpipm_opts);
 }
 
+/// dense_qp_solve returns acados' return_values_t, not HPIPM's hpipm_status: acados translates the
+/// status, and the two enums do not line up (1 is ACADOS_NAN_DETECTED, but MAX_ITER for HPIPM)
 std::string HPIPMSolver::returnCodeToString(int code){
     switch(code){
-    case SUCCESS: return "Found solution satisfying accuracy tolerance";
-    case MAX_ITER: return "Maximum iteration number reached";
-    case MIN_STEP: return "Minimum step length reached";
-    case NAN_SOL: return "NaN in solution detected";
-    case INCONS_EQ: return "unconsistent equality constraints";
-    default: return "Unknown error code";
+    case ACADOS_SUCCESS: return "Found solution satisfying accuracy tolerance";
+    case ACADOS_NAN_DETECTED: return "NaN in solution detected";
+    case ACADOS_MAXITER: return "Maximum iteration number reached";
+    case ACADOS_MINSTEP: return "Minimum step length reached";
+    case ACADOS_INFEASIBLE: return "Inconsistent equality constraints";
+    default: return "Unknown error code " + std::to_string(code);
     }
 }
 
