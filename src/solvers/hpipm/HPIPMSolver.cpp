@@ -125,6 +125,13 @@ void HPIPMSolver::solve(const HierarchicalQP &hierarchical_qp, Eigen::VectorXd &
         // the residuals of the unregularized QP, so tolerances and the solution are unaffected.
         hpipm_opts->hpipm_opts->reg_prim = 1e-5;
 
+        // Gamma = lam/t is bounded only by the floor HPIPM clips the slacks to (t_min, 1e-16 in
+        // every preset), so on an active constraint it can reach about 1e17 at convergence, more
+        // than reg_prim can absorb. A floor of 1e-11 caps it about 1e6 times lower. The price is a
+        // complementarity floor of lam*t_min, about 1e-10 for the multipliers seen so far (< 10),
+        // which stays well below acados' 1e-8 tolerance.
+        hpipm_opts->hpipm_opts->t_min = 1e-11;
+
         if(qp_out)
             free(qp_out);
         if(qp_solver)
