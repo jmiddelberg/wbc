@@ -109,13 +109,21 @@ void HPIPMSolver::solve(const HierarchicalQP &hierarchical_qp, Eigen::VectorXd &
         opts = dense_qp_opts_create(config, &dims);
 
         // The mode has to go through opts_set: it is only a preset, and writing hpipm_opts->mode
-        // directly applies none of its parameters, leaving acados' BALANCE defaults in place. With
-        // those (no split primal/dual step) the walking WBC QP turns into NaN close to convergence.
+        // directly applies none of its parameters, leaving acados' BALANCE defaults in place.
         // opts_set re-applies acados' own tolerances and iteration limit on top of the preset.
         config->opts_set(config, opts, "hpipm_mode", (void*)"SPEED");
 
         dense_qp_hpipm_opts *hpipm_opts = (dense_qp_hpipm_opts *)opts;
         hpipm_opts->hpipm_opts->warm_start = 0;
+
+        // Primal regularization of the KKT factorization, set after the mode because the preset
+        // resets it to 1e-15. HPIPM's range-space step runs a Cholesky on H + C'*Gamma*C, and in a
+        // WBC QP H can be as small as the acceleration penalty (1e-8 on the stance leg, whose joint
+        // accelerations are fixed by the contact constraint, not by a task), while Gamma reaches
+        // 1e12 on an active torque limit near convergence. That is beyond double precision and the
+        // factorization returns NaN. It only regularizes the step: convergence is still checked on
+        // the residuals of the unregularized QP, so tolerances and the solution are unaffected.
+        hpipm_opts->hpipm_opts->reg_prim = 1e-5;
 
         if(qp_out)
             free(qp_out);
