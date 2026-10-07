@@ -4,6 +4,7 @@
 #include "../../core/QPSolver.hpp"
 #include "../../core/QuadraticProgram.hpp"
 #include <acados_c/dense_qp_interface.h>
+#include <string>
 
 namespace wbc {
 
@@ -39,7 +40,15 @@ public:
      */
     virtual void solve(const wbc::HierarchicalQP &hierarchical_qp, Eigen::VectorXd &solver_output, bool allow_warm_start = true);
 
-    void setOptions(std::string &field, void* value);   
+    /** Set tol_stat, tol_eq, tol_ineq, tol_comp and tol_dual_gap to tol, as the MPC does, and raise iter_max to 1000*/
+    virtual bool setTolerance(double tol);
+
+    /** Select the HPIPM mode: SPEED_ABS, SPEED (default), BALANCE or ROBUST*/
+    virtual bool setMode(const std::string& mode);
+
+private:
+    std::string mode = "SPEED";
+    double tolerance = -1.0;           /** <= 0: keep the tolerances of the mode preset */
 };
 }
 

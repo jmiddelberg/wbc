@@ -77,6 +77,10 @@ public:
     /** Set solver options. Enforces a reconfiguration at the next call to solve().*/
     void setOptions(const DAQPSettings& opt){ _settings = opt; reset(); }
 
+    /** Set primal_tol = tol, as acados does (dense_qp_daqp.c): stationarity, equalities and
+      * complementarity are enforced by the working set itself.*/
+    virtual bool setTolerance(double tol){ _settings.primal_tol = tol; reset(); return true; }
+
 protected:
 
     /** Free the DAQP workspace (if any). Does not touch the solver options.*/

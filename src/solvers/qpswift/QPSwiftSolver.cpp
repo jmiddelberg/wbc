@@ -18,6 +18,14 @@ QPSwiftSolver::QPSwiftSolver(){
     options.verbose = VERBOSE;
 }
 
+bool QPSwiftSolver::setTolerance(double tol){
+    options.abstol = tol;
+    options.reltol = tol;
+    options.maxit = std::max<qp_int>(options.maxit, 1000);
+    reset();
+    return true;
+}
+
 QPSwiftSolver::~QPSwiftSolver(){
     if(my_qp)
         QP_CLEANUP_dense(my_qp);

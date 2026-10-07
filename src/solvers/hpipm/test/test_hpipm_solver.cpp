@@ -325,3 +325,73 @@ BOOST_AUTO_TEST_CASE(solver_hpipm_unbounded_constraints)
     // the equality constraints are never affected by the substitution
     BOOST_CHECK_SMALL((qp_inf.A*out_inf - qp_inf.b).cwiseAbs().maxCoeff(), 1e-4);
 }
+
+BOOST_AUTO_TEST_CASE(solver_hpipm_mode_and_tolerance)
+{
+    // The bounded problem from above, with bounds active at the solution
+    wbc::QuadraticProgram qp;
+    qp.resize(6, 0, 0, true);
+
+    Eigen::MatrixXd A(6,6);
+    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
+         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
+         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
+         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
+         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
+         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
+    Eigen::VectorXd y(6);
+    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
+
+    qp.H = A.transpose()*A;
+    qp.g = -(A.transpose()*y).transpose();
+    qp.lower_x.setConstant(-0.4);
+    qp.upper_x.setConstant(+0.4);
+
+    wbc::HierarchicalQP hqp;
+    hqp << qp;
+
+    Eigen::VectorXd reference;
+    HPIPMSolver reference_solver;
+    BOOST_CHECK(reference_solver.setMode("ROBUST"));
+    // Not tighter: t_min = 1e-11 puts a floor of about lam*t_min under the complementarity residual
+    BOOST_CHECK(reference_solver.setTolerance(1e-10));
+    try{
+        reference_solver.solve(hqp, reference);
+    }
+    catch(const std::exception& e){
+        BOOST_FAIL(e.what());
+    }
+
+    for(const std::string mode : {"SPEED_ABS", "SPEED", "BALANCE", "ROBUST"}){
+        for(double tol : {1e-3, 1e-6, 1e-9}){
+            HPIPMSolver solver;
+            BOOST_CHECK(solver.setMode(mode));
+            BOOST_CHECK(solver.setTolerance(tol));
+            Eigen::VectorXd solver_output;
+            try{
+                solver.solve(hqp, solver_output);
+            }
+            catch(const std::exception& e){
+                BOOST_ERROR("mode " << mode << ", tol " << tol << ": " << e.what());
+                continue;
+            }
+            for(uint j = 0; j < 6; ++j)
+                BOOST_CHECK((qp.lower_x(j)-tol) <= solver_output(j) && solver_output(j) <= (qp.upper_x(j)+tol));
+            // SPEED_ABS skips the residual computation and exits on complementarity alone, so tol_stat,
+            // tol_eq and tol_ineq do not bound its error
+            const double max_err = mode == "SPEED_ABS" ? 1e-3 : 1e-6;
+            const double err = (solver_output - reference).lpNorm<Eigen::Infinity>();
+            if(tol <= 1e-9)
+                BOOST_CHECK_MESSAGE(err < max_err, "mode " << mode << ", tol " << tol << ": error " << err);
+        }
+    }
+
+    // A mode change after the first solve takes effect at the next solve
+    HPIPMSolver solver;
+    Eigen::VectorXd solver_output;
+    BOOST_CHECK_NO_THROW(solver.solve(hqp, solver_output));
+    BOOST_CHECK(solver.setMode("BALANCE"));
+    BOOST_CHECK_NO_THROW(solver.solve(hqp, solver_output));
+
+    BOOST_CHECK_THROW(solver.setMode("FAST"), std::invalid_argument);
+}

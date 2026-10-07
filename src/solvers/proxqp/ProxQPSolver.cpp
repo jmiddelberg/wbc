@@ -1,6 +1,7 @@
 #include "ProxQPSolver.hpp"
 #include "../../core/QuadraticProgram.hpp"
 #include <Eigen/Core>
+#include <algorithm>
 #include <iostream>
 
 #include <proxsuite/proxqp/dense/dense.hpp>
@@ -12,6 +13,14 @@ QPSolverRegistry<ProxQPSolver> ProxQPSolver::reg("proxqp");
 
 ProxQPSolver::ProxQPSolver()
 {
+}
+
+bool ProxQPSolver::setTolerance(double tol)
+{
+    settings.eps_abs = std::max(1e-3 * tol, 1e-12);
+    settings.max_iter = std::max<proxsuite::linalg::veg::isize>(settings.max_iter, 1000);
+    reset();
+    return true;
 }
 
 /// solve problem:

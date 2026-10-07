@@ -2,6 +2,7 @@
 #include "acados/dense_qp/dense_qp_hpipm.h"
 #include <hpipm_d_dense_qp.h>
 #include <iostream>
+#include <stdexcept>
 
 namespace wbc{
 
@@ -111,7 +112,17 @@ void HPIPMSolver::solve(const HierarchicalQP &hierarchical_qp, Eigen::VectorXd &
         // The mode has to go through opts_set: it is only a preset, and writing hpipm_opts->mode
         // directly applies none of its parameters, leaving acados' BALANCE defaults in place.
         // opts_set re-applies acados' own tolerances and iteration limit on top of the preset.
-        config->opts_set(config, opts, "hpipm_mode", (void*)"SPEED");
+        config->opts_set(config, opts, "hpipm_mode", (void*)mode.c_str());
+
+        // Tolerances after the mode, which would otherwise overwrite them. The same fields and
+        // iteration limit as the MPC (model_predictive_control.cpp), so both are comparable.
+        // HPIPM grows stat_max to iter_max when dense_qp_create sizes the workspace below.
+        if(tolerance > 0){
+            for(const char *field : {"tol_stat", "tol_eq", "tol_ineq", "tol_comp", "tol_dual_gap"})
+                config->opts_set(config, opts, field, &tolerance);
+            int iter_max = 1000;
+            config->opts_set(config, opts, "iter_max", &iter_max);
+        }
 
         dense_qp_hpipm_opts *hpipm_opts = (dense_qp_hpipm_opts *)opts;
         hpipm_opts->hpipm_opts->warm_start = 0;
@@ -188,9 +199,19 @@ void HPIPMSolver::solve(const HierarchicalQP &hierarchical_qp, Eigen::VectorXd &
     d_dense_qp_sol_get_v(qp_out,solver_output.data());
 }
 
-void HPIPMSolver::setOptions(std::string &field,  void *value){
-    dense_qp_hpipm_opts *hpipm_opts = (dense_qp_hpipm_opts *)opts;
-    d_dense_qp_ipm_arg_set((char*)field.c_str(), value, hpipm_opts->hpipm_opts);
+bool HPIPMSolver::setTolerance(double tol){
+    tolerance = tol;
+    reset();
+    return true;
+}
+
+/// Validated here, because acados' opts_set calls exit(1) on a mode it does not know
+bool HPIPMSolver::setMode(const std::string& new_mode){
+    if(new_mode != "SPEED_ABS" && new_mode != "SPEED" && new_mode != "BALANCE" && new_mode != "ROBUST")
+        throw std::invalid_argument("Invalid HPIPM mode '" + new_mode + "', must be one of SPEED_ABS, SPEED, BALANCE, ROBUST");
+    mode = new_mode;
+    reset();
+    return true;
 }
 
 /// dense_qp_solve returns acados' return_values_t, not HPIPM's hpipm_status: acados translates the

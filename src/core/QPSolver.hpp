@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <string>
 
 namespace wbc{
 
@@ -28,6 +29,22 @@ public:
 
     /** @brief reset Enforces reconfiguration at next call to solve() */
     void reset(){configured=false;}
+
+    /**
+     * @brief setTolerance Set a single convergence tolerance, which each solver maps onto its own
+     * settings (the same way acados maps its tol_stat/tol_eq/tol_ineq/tol_comp). Solvers that
+     * iterate up to a limit also raise that limit to at least 1000, so the tolerance can be reached.
+     * Takes effect at the next call to solve().
+     * @return false if the solver has no tolerance setting, in which case nothing is changed.
+     */
+    virtual bool setTolerance(double tol){ (void)tol; return false; }
+
+    /**
+     * @brief setMode Select a solver-specific preset, e.g. the HPIPM mode. Takes effect at the
+     * next call to solve().
+     * @return false if the solver has no modes. Throws std::invalid_argument for an unknown mode.
+     */
+    virtual bool setMode(const std::string& mode){ (void)mode; return false; }
 };
 
 typedef std::shared_ptr<QPSolver> QPSolverPtr;

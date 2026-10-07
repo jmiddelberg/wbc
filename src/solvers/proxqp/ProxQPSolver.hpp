@@ -52,6 +52,9 @@ public:
     /** Set Solver options. Has to be called before first call to solve()!*/
     void setOptions(proxsuite::proxqp::Settings<double> opt){settings = opt;}
 
+    /** Set eps_abs = max(1e-3*tol, 1e-12), as acados does (dense_qp_proxqp.c): the single tolerance bounds primal and dual residuals only, complementarity is controlled implicitly. Raises the iteration limit to at least 1000*/
+    virtual bool setTolerance(double tol);
+
 protected:
 
     std::shared_ptr<proxsuite::proxqp::dense::QP<double>> _solver_ptr;

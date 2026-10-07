@@ -61,6 +61,9 @@ public:
     qpOASES::Options getOptions(){return options;}
     /** Set new solver options*/
     void setOptions(const qpOASES::Options& opt);
+    /** Set terminationTolerance = tol, as acados does (dense_qp_qpoases.c). The working set
+      * recalculation limit is already 1000, see setMaxNoWSR()*/
+    virtual bool setTolerance(double tol);
     /** Get Quadratic program*/
     const qpOASES::SQProblem& getSQProblem(){return sq_problem;}
 

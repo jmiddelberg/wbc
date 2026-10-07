@@ -124,6 +124,12 @@ int QPOASESSolver::getReturnValue(){
     return ret_val;
 }
 
+bool QPOASESSolver::setTolerance(double tol){
+    options.terminationTolerance = tol;
+    setOptions(options);
+    return true;
+}
+
 void QPOASESSolver::setOptions(const qpOASES::Options& opt){
     options = opt;
     sq_problem.setOptions(opt);

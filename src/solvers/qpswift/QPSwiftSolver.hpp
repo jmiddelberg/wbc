@@ -52,6 +52,9 @@ public:
      */
     virtual void solve(const wbc::HierarchicalQP &hierarchical_qp, Eigen::VectorXd &solver_output, bool allow_warm_start = true);
 
+    /** Set abstol = reltol = tol. Raises the iteration limit to at least 1000*/
+    virtual bool setTolerance(double tol);
+
     settings options;
 };
 }

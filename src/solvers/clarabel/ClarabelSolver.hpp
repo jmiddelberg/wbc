@@ -101,6 +101,9 @@ public:
     /** Return the current solver options*/
     clarabel::DefaultSettings<double> getOptions() const { return settings; }
 
+    /** Set tol_feas = tol_gap_abs = tol_gap_rel = tol, as acados does (ocp_qp_clarabel.c). Raises the iteration limit to at least 1000*/
+    virtual bool setTolerance(double tol);
+
     /**
      * @brief Select the linear system solver that Clarabel uses to factorize the KKT system in
      * every interior-point iteration, see ClarabelLinearSolver.

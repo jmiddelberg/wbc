@@ -111,6 +111,14 @@ void ClarabelSolver::setOptions(clarabel::DefaultSettings<double> opt){
     linear_solver = fromClarabelMethod(opt.direct_solve_method);
 }
 
+bool ClarabelSolver::setTolerance(double tol){
+    settings.tol_feas = tol;
+    settings.tol_gap_abs = tol;
+    settings.tol_gap_rel = tol;
+    settings.max_iter = std::max<uint32_t>(settings.max_iter, 1000);
+    return true;
+}
+
 void ClarabelSolver::setLinearSolver(ClarabelLinearSolver method){
     if(!linearSolverAvailable(method)){
         std::string available;

@@ -1,5 +1,6 @@
 #include "OsqpSolver.hpp"
 #include "../../core/QuadraticProgram.hpp"
+#include <algorithm>
 #include <chrono>
 #include <osqp_api_constants.h>
 
@@ -11,6 +12,15 @@ OsqpSolver::OsqpSolver() : configured(false){
 }
 
 OsqpSolver::~OsqpSolver(){
+}
+
+bool OsqpSolver::setTolerance(double tol){
+    solver.settings()->setAbsoluteTolerance(tol);
+    solver.settings()->setRelativeTolerance(tol);
+    solver.settings()->setMaxIteration(std::max<int>(solver.settings()->getSettings()->max_iter, 1000));
+    // OSQP copies the settings in initSolver(). This class shadows QPSolver::configured, so reset() would not reach it
+    configured = false;
+    return true;
 }
 
 void OsqpSolver::resize(uint nq, uint nc){
