@@ -12,9 +12,10 @@ namespace wbc{
  * QuadraticProgram stores every bound as a plain double and has no separate way of saying that a
  * constraint is one-sided or that a variable is free. Scenes and constraints therefore fill unused
  * bounds with this value instead of an arbitrary large number, so that the solver wrappers can
- * recognise them and hand them to their solver in whatever way that solver expects: some accept an
- * infinity of their own (OSQP, qpOASES, ProxQP, DAQP), some remove the row (Clarabel, qpSWIFT,
- * eiquadprog) and some switch the constraint off with a mask (HPIPM).
+ * recognise them and hand them to their solver in whatever way that solver expects: the solvers
+ * behind acados (HPIPM, DAQP, ProxQP, qpOASES, OSQP, Clarabel) switch the side off with the acados
+ * constraint mask, which acados turns into the infinity of the solver or a row that is left out,
+ * and qpSWIFT and eiquadprog remove the row.
  *
  * A large finite value is used rather than std::numeric_limits<double>::infinity() on purpose: code
  * that does not know about the convention degrades to a very loose but finite bound, whereas an

@@ -1,18 +1,18 @@
 SET(TARGET_NAME wbc-solvers-daqp)
 
 # DAQP comes with acados (ACADOS_WITH_DAQP) and is called through its dense QP interface, see
-# ../acados_dense_qp. acados is found in ../CMakeLists.txt.
+# ../acados_qp. acados is found in ../CMakeLists.txt.
 wbc_require_acados_solver(ACADOS_WITH_DAQP)
 
 set(SOURCES DAQPSolver.cpp)
 set(HEADERS DAQPSolver.hpp)
 
-list(APPEND PKGCONFIG_REQUIRES wbc-acados_dense_qp)
+list(APPEND PKGCONFIG_REQUIRES wbc-acados_qp)
 string (REPLACE ";" " " PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES}")
 
 add_library(${TARGET_NAME} SHARED ${SOURCES} ${HEADERS})
 target_link_libraries(${TARGET_NAME}
-                      PUBLIC  wbc-acados_dense_qp
+                      PUBLIC  wbc-acados_qp
                       PRIVATE acados)
 
 set_target_properties(${TARGET_NAME} PROPERTIES

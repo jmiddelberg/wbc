@@ -1,5 +1,5 @@
-#ifndef WBC_SOLVERS_ACADOS_DENSE_QP_SOLVER_HPP
-#define WBC_SOLVERS_ACADOS_DENSE_QP_SOLVER_HPP
+#ifndef WBC_SOLVERS_ACADOS_QP_SOLVER_HPP
+#define WBC_SOLVERS_ACADOS_QP_SOLVER_HPP
 
 #include "../../core/QPSolver.hpp"
 
@@ -12,13 +12,21 @@ namespace wbc {
 class HierarchicalQP;
 struct QuadraticProgram;
 
+namespace acados_qp {
+class Backend;
+}
+
 /**
- * @brief Common base of the solvers that wbc calls through the dense QP interface of acados
- * (acados_c/dense_qp_interface.h). The derived classes only select the solver and its options,
- * so that wbc needs nothing but acados to get these solvers, and uses the same solver build and
- * the same option handling as an MPC that runs on acados.
+ * @brief Common base of the solvers that wbc calls through acados. The derived classes only select the solver and
+ * its options, so that wbc needs nothing but acados to get these solvers, and uses the same solver build and the
+ * same option handling as an MPC that runs on acados.
  *
- * The QuadraticProgram is passed to acados as a dense QP:
+ * acados has two interfaces that wbc uses, one per base class:
+ *  - AcadosDenseQPSolver: the dense QP interface (DAQP, ProxQP, qpOASES)
+ *  - AcadosOcpQPSolver: the OCP QP solver modules with a single stage (OSQP, Clarabel), for the solvers that acados
+ *    only has as OCP QP solvers
+ *
+ * Both get the QuadraticProgram
  *  \f[
  *        \begin{array}{ccc}
  *        min(\mathbf{x}) & \frac{1}{2} \mathbf{x}^T\mathbf{H}\mathbf{x}+\mathbf{x}^T\mathbf{g}& \\
@@ -28,22 +36,20 @@ struct QuadraticProgram;
  *             & lb(\mathbf{x}) \leq \mathbf{x} \leq ub(\mathbf{x})& \\
  *        \end{array}
  *  \f]
- * Every variable of a bounded QP is a box constraint (nb = nq). A side of a bound or of a general
- * constraint that is marked absent with wbc::INF is switched off with the acados constraint mask,
- * which every acados dense QP solver replaces by its own infinity. The dimensions thus only change
- * with the size of the QP, and the solver memory, including the warm start, is kept from one call
- * of solve() to the next.
+ * Every variable of a bounded QP is a box constraint (nb = nq). A side of a bound or of a general constraint that is
+ * marked absent with wbc::INF is switched off with the acados constraint mask, which every acados solver replaces by
+ * its own way to drop a constraint side. The dimensions thus only change with the size of the QP, and the solver
+ * memory, including the warm start, is kept from one call of solve() to the next.
  *
- * The acados memory is created again when the dimensions change, after reset() and after a change
- * of an option.
+ * The acados memory is created again when the dimensions change, after reset() and after a change of an option.
  */
-class AcadosDenseQPSolver : public QPSolver{
+class AcadosQPSolver : public QPSolver{
 public:
-    virtual ~AcadosDenseQPSolver();
+    virtual ~AcadosQPSolver();
 
     // acados keeps pointers into this object (the dimensions and the options)
-    AcadosDenseQPSolver(const AcadosDenseQPSolver&) = delete;
-    AcadosDenseQPSolver& operator=(const AcadosDenseQPSolver&) = delete;
+    AcadosQPSolver(const AcadosQPSolver&) = delete;
+    AcadosQPSolver& operator=(const AcadosQPSolver&) = delete;
 
     /**
      * @brief solve Solve the given quadratic program
@@ -85,12 +91,12 @@ public:
 
 protected:
     /**
-     * @param acados_solver Value of the acados enum dense_qp_solver_t, e.g. DENSE_QP_DAQP
+     * @param backend The acados interface, see AcadosDenseQPSolver and AcadosOcpQPSolver
      * @param name Name of the solver, as used in error messages
      * @param default_warm_start Warm start level that solve() uses when warm starting is allowed
      * @param max_warm_start Highest warm start level that is valid for a QP whose matrices change in every cycle
      */
-    AcadosDenseQPSolver(int acados_solver, const std::string& name, int default_warm_start, int max_warm_start);
+    AcadosQPSolver(std::unique_ptr<acados_qp::Backend> backend, const std::string& name, int default_warm_start, int max_warm_start);
 
     /** Set the solver specific options with setOption(). Called each time the acados memory is created, after the
       * generic options. */
@@ -104,22 +110,21 @@ protected:
     static std::string returnCodeToString(int code);
 
 private:
-    struct Acados;
-    std::unique_ptr<Acados> acados;
+    std::unique_ptr<acados_qp::Backend> backend;
+    struct State;
+    std::unique_ptr<State> state;   /** dimensions and bounds of the current acados memory*/
 
     std::string name;
     int max_warm_start;
     int warm_start;
-    double tolerance;   /** <= 0: keep the defaults of acados*/
-    int iter_max;       /** <= 0: keep the defaults of acados, or the limit that setTolerance() sets*/
+    int applied_warm_start; /** value of the acados option warm_start in the current options, -1: none*/
+    double tolerance;       /** <= 0: keep the defaults of acados*/
+    int iter_max;           /** <= 0: keep the defaults of acados, or the limit that setTolerance() sets*/
     int return_code;
+    bool setting_options;   /** true while the options of a new acados memory are set*/
 
-    /** Create the acados config, data, options and memory for the current dimensions */
+    /** Create the acados memory for the dimensions in state and set all options */
     void create();
-    /** Free everything that create() allocates */
-    void destroy();
-    /** Write the QP into the acados data, including the constraint masks */
-    void setData(const QuadraticProgram& qp);
 };
 
 }

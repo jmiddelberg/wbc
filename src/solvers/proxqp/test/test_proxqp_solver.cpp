@@ -2,7 +2,7 @@
 #define BOOST_TEST_MAIN
 #include <boost/test/unit_test.hpp>
 #include "solvers/proxqp/ProxQPSolver.hpp"
-#include "solvers/acados_dense_qp/test/DenseQPTestCases.hpp"
+#include "solvers/acados_qp/test/QPTestCases.hpp"
 
 using namespace wbc;
 
@@ -15,11 +15,11 @@ static std::unique_ptr<AcadosDenseQPSolver> makeSolver(){
     return solver;
 }
 
-WBC_DENSE_QP_TEST_CASES(solver_proxqp, makeSolver, TOL)
+WBC_ACADOS_QP_TEST_CASES(solver_proxqp, makeSolver, TOL)
 
 BOOST_AUTO_TEST_CASE(solver_proxqp_options)
 {
-    dense_qp_test::commonOptions([](){ return std::unique_ptr<AcadosDenseQPSolver>(new ProxQPSolver()); }, 2, 3);
+    acados_qp_test::commonOptions([](){ return std::unique_ptr<AcadosDenseQPSolver>(new ProxQPSolver()); }, 2, 3);
 }
 
 BOOST_AUTO_TEST_CASE(solver_proxqp_dense_backends)
@@ -28,8 +28,8 @@ BOOST_AUTO_TEST_CASE(solver_proxqp_dense_backends)
     // point, the cost pulls the solution away from it, so some constraints are active.
     wbc::QuadraticProgram qp;
     qp.resize(6, 2, 6, true);
-    Eigen::MatrixXd A = dense_qp_test::taskJacobian();
-    Eigen::VectorXd y = dense_qp_test::taskReference();
+    Eigen::MatrixXd A = acados_qp_test::taskJacobian();
+    Eigen::VectorXd y = acados_qp_test::taskReference();
     const Eigen::VectorXd x_feasible = Eigen::VectorXd::Constant(6, 0.1);
     qp.H = A.transpose()*A + 1e-6*Eigen::MatrixXd::Identity(6,6);
     qp.g = -(A.transpose()*(2*y));
@@ -45,13 +45,13 @@ BOOST_AUTO_TEST_CASE(solver_proxqp_dense_backends)
     solver.setTolerance(1e-9);
     BOOST_CHECK_EQUAL(solver.getDenseBackend(), "AUTOMATIC");
     Eigen::VectorXd x_automatic;
-    dense_qp_test::solve(solver, qp, x_automatic);
+    acados_qp_test::solve(solver, qp, x_automatic);
 
     for(const std::string backend : {"PRIMAL_DUAL_LDLT", "PRIMAL_LDLT", "AUTOMATIC"}){
         // a change after the first solve takes effect at the next solve
         BOOST_CHECK_NO_THROW(solver.setDenseBackend(backend));
         Eigen::VectorXd x;
-        if(dense_qp_test::solve(solver, qp, x))
+        if(acados_qp_test::solve(solver, qp, x))
             BOOST_CHECK_MESSAGE((x - x_automatic).cwiseAbs().maxCoeff() < 1e-6, backend << ": solution differs by " << (x - x_automatic).cwiseAbs().maxCoeff());
     }
 

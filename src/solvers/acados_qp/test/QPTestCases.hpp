@@ -1,8 +1,8 @@
-#ifndef WBC_SOLVERS_ACADOS_DENSE_QP_TEST_CASES_HPP
-#define WBC_SOLVERS_ACADOS_DENSE_QP_TEST_CASES_HPP
+#ifndef WBC_SOLVERS_ACADOS_QP_TEST_CASES_HPP
+#define WBC_SOLVERS_ACADOS_QP_TEST_CASES_HPP
 
-// Test cases that every solver behind the acados dense QP interface has to pass. The test of each
-// solver instantiates them with WBC_DENSE_QP_TEST_CASES(prefix, factory, tol), where factory
+// Test cases that every solver that wbc calls through acados has to pass (AcadosQPSolver). The test of each
+// solver instantiates them with WBC_ACADOS_QP_TEST_CASES(prefix, factory, tol), where factory
 // creates a configured solver and tol is the accuracy that the solver reaches.
 
 #include <boost/test/unit_test.hpp>
@@ -11,11 +11,11 @@
 #include <memory>
 #include <stdexcept>
 #include "core/QuadraticProgram.hpp"
-#include "solvers/acados_dense_qp/AcadosDenseQPSolver.hpp"
+#include "solvers/acados_qp/AcadosQPSolver.hpp"
 
-namespace dense_qp_test{
+namespace acados_qp_test{
 
-using SolverFactory = std::function<std::unique_ptr<wbc::AcadosDenseQPSolver>()>;
+using SolverFactory = std::function<std::unique_ptr<wbc::AcadosQPSolver>()>;
 
 // Task Jacobian used throughout the tests
 inline Eigen::MatrixXd taskJacobian(){
@@ -43,7 +43,7 @@ inline wbc::HierarchicalQP toHQP(const wbc::QuadraticProgram& qp){
 }
 
 // Solve and report an exception as a test error, with the name of the solver
-inline bool solve(wbc::AcadosDenseQPSolver& solver, const wbc::QuadraticProgram& qp, Eigen::VectorXd& x, bool allow_warm_start = true){
+inline bool solve(wbc::AcadosQPSolver& solver, const wbc::QuadraticProgram& qp, Eigen::VectorXd& x, bool allow_warm_start = true){
     BOOST_REQUIRE(qp.isValid());
     try{
         solver.solve(toHQP(qp), x, allow_warm_start);
@@ -405,20 +405,20 @@ inline void tolerance(const SolverFactory& make){
     }
 }
 
-} // namespace dense_qp_test
+} // namespace acados_qp_test
 
 /// Instantiate all common test cases for one solver
-#define WBC_DENSE_QP_TEST_CASES(prefix, factory, tol) \
-    BOOST_AUTO_TEST_CASE(prefix##_without_constraints){ dense_qp_test::withoutConstraints(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_with_equality_constraints){ dense_qp_test::withEqualityConstraints(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_with_inequality_constraints){ dense_qp_test::withInequalityConstraints(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_with_inactive_bounds){ dense_qp_test::withInactiveBounds(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_with_active_bounds){ dense_qp_test::withActiveBounds(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_with_all_constraint_types){ dense_qp_test::withAllConstraintTypes(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_repeated_solve){ dense_qp_test::repeatedSolve(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_unbounded_constraints){ dense_qp_test::unboundedConstraints(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_changing_masks){ dense_qp_test::changingMasks(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_failure_and_recovery){ dense_qp_test::failureAndRecovery(factory, tol); } \
-    BOOST_AUTO_TEST_CASE(prefix##_tolerance){ dense_qp_test::tolerance(factory); }
+#define WBC_ACADOS_QP_TEST_CASES(prefix, factory, tol) \
+    BOOST_AUTO_TEST_CASE(prefix##_without_constraints){ acados_qp_test::withoutConstraints(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_with_equality_constraints){ acados_qp_test::withEqualityConstraints(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_with_inequality_constraints){ acados_qp_test::withInequalityConstraints(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_with_inactive_bounds){ acados_qp_test::withInactiveBounds(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_with_active_bounds){ acados_qp_test::withActiveBounds(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_with_all_constraint_types){ acados_qp_test::withAllConstraintTypes(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_repeated_solve){ acados_qp_test::repeatedSolve(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_unbounded_constraints){ acados_qp_test::unboundedConstraints(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_changing_masks){ acados_qp_test::changingMasks(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_failure_and_recovery){ acados_qp_test::failureAndRecovery(factory, tol); } \
+    BOOST_AUTO_TEST_CASE(prefix##_tolerance){ acados_qp_test::tolerance(factory); }
 
 #endif

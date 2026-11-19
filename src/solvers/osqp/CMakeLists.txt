@@ -1,17 +1,18 @@
 SET(TARGET_NAME wbc-solvers-osqp)
 
-find_package(OsqpEigen REQUIRED)
+# OSQP comes with acados (ACADOS_WITH_OSQP) and is called through its OCP QP solver module, see
+# ../acados_qp. acados is found in ../CMakeLists.txt.
+wbc_require_acados_solver(ACADOS_WITH_OSQP)
 
 set(SOURCES OsqpSolver.cpp)
 set(HEADERS OsqpSolver.hpp)
 
-list(APPEND PKGCONFIG_REQUIRES wbc-core)
+list(APPEND PKGCONFIG_REQUIRES wbc-acados_qp)
 string (REPLACE ";" " " PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES}")
 
 add_library(${TARGET_NAME} SHARED ${SOURCES} ${HEADERS})
-target_link_libraries(${TARGET_NAME} PUBLIC
-                      wbc-core)
-target_link_libraries(${TARGET_NAME} PUBLIC OsqpEigen::OsqpEigen)
+target_link_libraries(${TARGET_NAME}
+                      PUBLIC  wbc-acados_qp)
 
 set_target_properties(${TARGET_NAME} PROPERTIES
        VERSION ${PROJECT_VERSION}

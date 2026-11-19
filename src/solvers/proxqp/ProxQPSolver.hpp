@@ -1,7 +1,7 @@
 #ifndef WBC_SOLVERS_PROXQP_SOLVER_HPP
 #define WBC_SOLVERS_PROXQP_SOLVER_HPP
 
-#include "../acados_dense_qp/AcadosDenseQPSolver.hpp"
+#include "../acados_qp/AcadosDenseQPSolver.hpp"
 
 #include <string>
 
