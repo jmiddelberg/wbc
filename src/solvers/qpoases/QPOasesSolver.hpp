@@ -1,82 +1,41 @@
 #ifndef WBC_SOLVERS_QP_OASES_SOLVER_HPP
 #define WBC_SOLVERS_QP_OASES_SOLVER_HPP
 
-#include "../../core/QPSolver.hpp"
-#include <qpOASES.hpp>
-
-namespace qpOASES {
-enum optionPresets{qp_default, qp_reliable, qp_fast, qp_unset};
-}
+#include "../acados_dense_qp/AcadosDenseQPSolver.hpp"
 
 namespace wbc {
 
-class HierarchicalQP;
-
 /**
- * @brief The QPOASESSolver class is a wrapper for the qp-solver qpoases (see https://www.coin-or.org/qpOASES/doc/3.0/manual.pdf). It solves problems of shape:
- *  \f[
- *        \begin{array}{ccc}
- *        min(\mathbf{x}) & \frac{1}{2} \mathbf{x}^T\mathbf{H}\mathbf{x}+\mathbf{x}^T\mathbf{g}& \\
- *             & & \\
- *        s.t. & lb(\mathbf{Ax}) \leq \mathbf{Ax} \leq ub(\mathbf{Ax})& \\
- *             & lb(\mathbf{x}) \leq \mathbf{x} \leq ub(\mathbf{x})& \\
- *        \end{array}
- *  \f]
+ * @brief The QPOASESSolver class calls qpOASES (see https://github.com/coin-or/qpOASES) through the dense QP interface
+ * of acados (DENSE_QP_QPOASES, acados/dense_qp/dense_qp_qpoases.c). acados comes with qpOASES_e, the C version of
+ * qpOASES, which is the same solver build that an acados MPC uses with FULL_CONDENSING_QPOASES. See
+ * AcadosDenseQPSolver for the problem formulation.
+ *
+ * acados passes the equality constraints to qpOASES as general constraints with equal bounds (b <= Ax <= b, this
+ * needs acados with commit 14b6c7f), and masked (absent) bounds as qpOASES' infinity. acados builds qpOASES_e with
+ * __SUPPRESSANYOUTPUT__, so qpOASES prints nothing.
+ *
+ * In contrast to the earlier wrapper of the C++ version (SQProblem::hotstart), acados initializes a new QProblem in
+ * every call. With warm starting, it guesses the initial working set from the dual solution of the previous call.
+ *
+ * Options, as acados maps them:
+ *  - qpOASES runs with the MPC preset (Options_setToMPC) and terminationTolerance = 1e-4 by default.
+ *  - setTolerance(tol): terminationTolerance = min(1e-4, tol). A tolerance above 1e-4 thus has no effect.
+ *  - setMaxIter(n): maximum number of working set recalculations nWSR = n (default 1000).
+ *  - setWarmStart(level): 0 is a cold start (QProblem_init), 1 (default) guesses the working set from the previous
+ *    dual solution (QProblem_initW), without the constraints that are absent now. acados also has level 2, a hot
+ *    start that is only valid for constant matrices. It is not accepted here.
  *
  * Reference:
  * Ferreau, H.J., Kirches, C., Potschka, A. et al. qpOASES: a parametric active-set algorithm for quadratic programming.
  * Math. Prog. Comp. 6, 327–363 (2014). https://doi.org/10.1007/s12532-014-0071-1
- *
- * Solver parameters:
- *  - Check qpOASES::Options
- *  - Different sets of default options can be selected:
- *    - options.setToDefault( );
- *    - options.setToReliable( ); // for maximum reliability
- *    - options.setToMPC( );      // for maximum speed
  */
-class QPOASESSolver : public QPSolver{
+class QPOASESSolver : public AcadosDenseQPSolver{
 private:
     static QPSolverRegistry<QPOASESSolver> reg;
 
 public:
     QPOASESSolver();
-    virtual ~QPOASESSolver();
-
-    /**
-     * @brief solve Solve the given quadratic program
-     * @param hierarchical_qp Description of the hierarchical quadratic program to solve.
-     * @param solver_output solution of the quadratic program
-     */
-    virtual void solve(const wbc::HierarchicalQP &hierarchical_qp, Eigen::VectorXd &solver_output, bool allow_warm_start = true);
-
-    /** Set the maximum number of working set recalculations to be performed during the initial homotopy*/
-    void setMaxNoWSR(const uint& n){n_wsr = n;}
-    /** Get the maximum number of working set recalculations to be performed during the initial homotopy*/
-    uint getMaxNoWSR(){return n_wsr;}
-    /** Retrieve the return value from the last QP calculation*/
-    int getReturnValue();
-    /** Get number of working set recalculations actually performed*/
-    int getNoWSR(){return actual_n_wsr;}
-    /** Return current solver options*/
-    qpOASES::Options getOptions(){return options;}
-    /** Set new solver options*/
-    void setOptions(const qpOASES::Options& opt);
-    /** Set terminationTolerance = tol, as acados does (dense_qp_qpoases.c). The working set
-      * recalculation limit is already 1000, see setMaxNoWSR()*/
-    virtual bool setTolerance(double tol);
-    /** Get Quadratic program*/
-    const qpOASES::SQProblem& getSQProblem(){return sq_problem;}
-
-protected:
-    qpOASES::Options options;
-    qpOASES::SQProblem sq_problem;
-    int n_wsr, actual_n_wsr;
-    qpOASES::returnValue ret_val;
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> H;
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> A;
-    Eigen::VectorXd lower_x, upper_x;  /** Variable bounds with wbc::INF mapped to qpOASES::INFTY */
-    size_t nc;
-    size_t nv;
 };
 
 }

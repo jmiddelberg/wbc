@@ -1,53 +1,19 @@
 SET(TARGET_NAME wbc-solvers-daqp)
 
-# DAQP (https://github.com/darnstrom/daqp) installs a CMake config package to <prefix>/cmake, which
-# is where find_package looks first. If that package is not found, e.g. because only the headers and
-# the library were copied into place, fall back to locating those manually. Both lookups can be
-# pointed at a custom install prefix with -DDAQP_ROOT=<prefix>.
-find_package(daqp CONFIG QUIET HINTS ${DAQP_ROOT} ENV DAQP_ROOT)
-
-if(daqp_FOUND)
-    message(STATUS "Found DAQP: ${daqp_DIR} (CMake package)")
-    set(DAQP_LIBRARIES daqp)
-    set(DAQP_INCLUDE_DIRS "")
-else()
-    find_path(DAQP_INCLUDE_DIR
-              NAMES daqp/api.h
-              HINTS ${DAQP_ROOT} ENV DAQP_ROOT
-              PATHS /usr/local /usr
-              PATH_SUFFIXES include)
-    find_library(DAQP_LIBRARY
-                 NAMES daqp
-                 HINTS ${DAQP_ROOT} ENV DAQP_ROOT
-                 PATHS /usr/local /usr
-                 PATH_SUFFIXES lib lib64)
-
-    if(NOT DAQP_INCLUDE_DIR OR NOT DAQP_LIBRARY)
-        message(FATAL_ERROR
-            "DAQP not found:\n"
-            "    DAQP_INCLUDE_DIR = ${DAQP_INCLUDE_DIR}   (searched for daqp/api.h)\n"
-            "    DAQP_LIBRARY     = ${DAQP_LIBRARY}   (searched for libdaqp)\n"
-            "Build and install DAQP BEFORE configuring wbc (see scripts/full_install.sh), or pass\n"
-            "-DDAQP_ROOT=<prefix>  (or -DDAQP_INCLUDE_DIR=... -DDAQP_LIBRARY=...).")
-    endif()
-
-    message(STATUS "Found DAQP: ${DAQP_LIBRARY} (headers: ${DAQP_INCLUDE_DIR})")
-    set(DAQP_LIBRARIES ${DAQP_LIBRARY})
-    set(DAQP_INCLUDE_DIRS ${DAQP_INCLUDE_DIR})
-endif()
+# DAQP comes with acados (ACADOS_WITH_DAQP) and is called through its dense QP interface, see
+# ../acados_dense_qp. acados is found in ../CMakeLists.txt.
+wbc_require_acados_solver(ACADOS_WITH_DAQP)
 
 set(SOURCES DAQPSolver.cpp)
 set(HEADERS DAQPSolver.hpp)
 
-list(APPEND PKGCONFIG_REQUIRES wbc-core)
+list(APPEND PKGCONFIG_REQUIRES wbc-acados_dense_qp)
 string (REPLACE ";" " " PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES}")
 
 add_library(${TARGET_NAME} SHARED ${SOURCES} ${HEADERS})
-target_include_directories(${TARGET_NAME} PUBLIC ${DAQP_INCLUDE_DIRS})
-target_link_libraries(${TARGET_NAME} PUBLIC
-                      wbc-core
-                      ${DAQP_LIBRARIES}
-                      m)
+target_link_libraries(${TARGET_NAME}
+                      PUBLIC  wbc-acados_dense_qp
+                      PRIVATE acados)
 
 set_target_properties(${TARGET_NAME} PROPERTIES
        VERSION ${PROJECT_VERSION}

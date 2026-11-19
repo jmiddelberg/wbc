@@ -44,11 +44,7 @@ BOOST_AUTO_TEST_CASE(simple_test){
 
     // Configure Solver
     QPSolverPtr solver = std::make_shared<QPOASESSolver>();
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(10000);
-    qpOASES::Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-    options.setToReliable();
-    options.printLevel = qpOASES::PL_NONE;    
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
+    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(10000);
 
     // Configure scene
     SpatialVelocityTaskPtr cart_task;

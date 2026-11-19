@@ -10,7 +10,6 @@
 
 using namespace wbc;
 using namespace std;
-using namespace qpOASES;
 using namespace wbc;
 
 int main(){
@@ -57,12 +56,7 @@ int main(){
     // Configure solver. We have to use QPOases in this case, as it can deal with hard constraints
     // like rigid feet contact points
     QPSolverPtr solver = std::make_shared<QPOASESSolver>();
-    Options options = std::dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-    options.enableRegularisation = BT_TRUE;
-    options.enableFarBounds = BT_FALSE;
-    options.printLevel = PL_NONE;
-    std::dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
-    std::dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
+    std::dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
 
     // Configure Scene, we have to use VelocitySceneQuadraticCost here, since it implements
     // rigid contact constraints for the feet contacts. Create a task for controlling the root link in

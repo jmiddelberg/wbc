@@ -1,101 +1,27 @@
 #include "ProxQPSolver.hpp"
-#include "../../core/QuadraticProgram.hpp"
-#include <Eigen/Core>
-#include <algorithm>
-#include <iostream>
 
-#include <proxsuite/proxqp/dense/dense.hpp>
-#include <proxsuite/proxqp/status.hpp>
+#include <acados_c/dense_qp_interface.h>
+#include <stdexcept>
 
 namespace wbc {
 
 QPSolverRegistry<ProxQPSolver> ProxQPSolver::reg("proxqp");
 
-ProxQPSolver::ProxQPSolver()
-{
+// Warm start level 2 keeps the proximal parameters, as this wrapper did when it called ProxQP directly
+// (WARM_START_WITH_PREVIOUS_RESULT). acados accepts levels up to 3.
+ProxQPSolver::ProxQPSolver() : AcadosDenseQPSolver(DENSE_QP_PROXQP, "ProxQP", 2, 3){
 }
 
-bool ProxQPSolver::setTolerance(double tol)
-{
-    settings.eps_abs = std::max(1e-3 * tol, 1e-12);
-    settings.max_iter = std::max<proxsuite::linalg::veg::isize>(settings.max_iter, 1000);
+/// Validated here, because acados terminates the process on a backend it does not know
+void ProxQPSolver::setDenseBackend(const std::string& backend){
+    if(backend != "AUTOMATIC" && backend != "PRIMAL_DUAL_LDLT" && backend != "PRIMAL_LDLT")
+        throw std::invalid_argument("Invalid ProxQP dense backend '" + backend + "', must be one of AUTOMATIC, PRIMAL_DUAL_LDLT, PRIMAL_LDLT");
+    dense_backend = backend;
     reset();
-    return true;
 }
 
-/// solve problem:
-/// min  0.5 * x'Hx + g'x
-/// s.t. Ax = b
-///      l < Cx < u 
-void ProxQPSolver::solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::VectorXd& solver_output, bool allow_warm_start)
-{
-    namespace pqp = proxsuite::proxqp;
-
-    assert(hierarchical_qp.size() == 1);
-
-    const wbc::QuadraticProgram &qp = hierarchical_qp[0];
-    assert(qp.isValid());
-
-    
-    size_t n_var = qp.A.cols();
-    size_t n_eq = qp.neq;
-    size_t n_in = qp.nin + qp.lower_x.size();
-
-    // merge ineuqalities and bounds together
-    _C_mtx.resize(n_in, n_var);
-    _l_vec.resize(n_in);
-    _u_vec.resize(n_in);
-
-    // ProxQP has its own value for an unbounded constraint, so wbc::INF is mapped onto it. ProxQP
-    // then leaves the row out of its active set estimate instead of carrying it as a bound that is
-    // merely far away.
-    const double prox_inf = proxsuite::helpers::infinite_bound<double>::value();
-    auto toProxInf = [prox_inf](const Eigen::VectorXd& v){
-        return v.unaryExpr([prox_inf](double b){
-            if(b >= INF)  return  prox_inf;
-            if(b <= -INF) return -prox_inf;
-            return b;
-        }).eval();
-    };
-
-    _C_mtx.topRows(qp.nin) = qp.C;
-    _C_mtx.bottomRows(qp.lower_x.size()).setIdentity();
-    _l_vec << toProxInf(qp.lower_y), toProxInf(qp.lower_x);
-    _u_vec << toProxInf(qp.upper_y), toProxInf(qp.upper_x);
-
-    if(!allow_warm_start)
-        configured = false;
-
-    if(!configured) 
-    {
-        _solver_ptr = std::make_shared<pqp::dense::QP<double>>(n_var, n_eq, n_in);
-        _solver_ptr->init(qp.H, qp.g, qp.A, qp.b, _C_mtx, _l_vec, _u_vec);
-        _solver_ptr->settings = settings;
-
-        configured = true;
-    }
-    else 
-    {
-        _solver_ptr->settings.initial_guess = pqp::InitialGuessStatus::WARM_START_WITH_PREVIOUS_RESULT;
-        _solver_ptr->update(qp.H, qp.g, qp.A, qp.b, _C_mtx, _l_vec, _u_vec);
-    }
-
-    _solver_ptr->solve();
-    
-    solver_output.resize(qp.nq);
-    solver_output = _solver_ptr->results.x;
-
-    auto status = _solver_ptr->results.info.status;
-
-    if(status == pqp::QPSolverOutput::PROXQP_MAX_ITER_REACHED)
-        throw std::runtime_error("ProxQP returned error status: max iterations reached.");
-    if(status == pqp::QPSolverOutput::PROXQP_PRIMAL_INFEASIBLE)
-        throw std::runtime_error("ProxQP returned error status: problem is primal infeasible.");
-    if(status == pqp::QPSolverOutput::PROXQP_DUAL_INFEASIBLE)
-        throw std::runtime_error("ProxQP returned error status: problem is dual infeasible.");
-
-    _actual_n_iter = _solver_ptr->results.info.iter;
-
+void ProxQPSolver::setSolverOptions(){
+    setOption("proxqp_dense_backend", (void*)dense_backend.c_str());
 }
 
 } // namespace wbc

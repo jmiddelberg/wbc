@@ -44,10 +44,7 @@ BOOST_AUTO_TEST_CASE(simple_test){
 
     // Configure Solver
     QPSolverPtr solver = std::make_shared<QPOASESSolver>();
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
-    qpOASES::Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-    options.printLevel = qpOASES::PL_NONE;
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
+    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
 
     // Configure scene
     SpatialAccelerationTaskPtr cart_task;
@@ -129,10 +126,7 @@ BOOST_AUTO_TEST_CASE(delta_penalty){
     // Two identical scenes with separate solvers, one with delta penalty
     auto makeSolver = [](){
         QPSolverPtr solver = std::make_shared<QPOASESSolver>();
-        dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
-        qpOASES::Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-        options.printLevel = qpOASES::PL_NONE;
-        dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
+        dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
         return solver;
     };
 
@@ -212,10 +206,7 @@ BOOST_AUTO_TEST_CASE(friction_cone_slack){
 
     auto makeSolver = [](){
         QPSolverPtr solver = std::make_shared<QPOASESSolver>();
-        dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
-        qpOASES::Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-        options.printLevel = qpOASES::PL_NONE;
-        dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
+        dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
         return solver;
     };
 

@@ -1,70 +1,53 @@
 #ifndef WBC_SOLVERS_PROXQP_SOLVER_HPP
 #define WBC_SOLVERS_PROXQP_SOLVER_HPP
 
-#include "../../core/QPSolver.hpp"
+#include "../acados_dense_qp/AcadosDenseQPSolver.hpp"
 
-#include <memory>
-#include <iostream>
-
-#include <proxsuite/proxqp/dense/wrapper.hpp>
+#include <string>
 
 namespace wbc {
 
-class HierarchicalQP;
-
 /**
- * @brief The ProxQPSolver class is a wrapper for the qp-solver prox-qp (see https://github.com/Simple-Robotics/proxsuite). It solves problems of shape:
- *  \f[
- *        \begin{array}{ccc}
- *        min(\mathbf{x}) & \frac{1}{2} \mathbf{x}^T\mathbf{H}\mathbf{x}+\mathbf{x}^T\mathbf{g}& \\
- *             & & \\
- *        s.t. & \mathbf{Ax} = \mathbf{b}& \\
- *             & \mathbf{l} \leq \mathbf{Cx} \leq \mathbf{u}& \\
- *        \end{array}
- *  \f]
+ * @brief The ProxQPSolver class calls the dense backend of ProxQP (see https://github.com/Simple-Robotics/proxsuite)
+ * through the dense QP interface of acados (DENSE_QP_PROXQP, acados/dense_qp/dense_qp_proxqp.c). This is the same
+ * solver build that an acados MPC uses: the proxsuite version that acados pins, with the SIMD kernels if acados was
+ * built with ACADOS_PROXQP_VECTORIZE. See AcadosDenseQPSolver for the problem formulation.
+ *
+ * The bounds are passed to ProxQP as box constraints, masked (absent) sides as ProxQP's infinity.
+ *
+ * Options, as acados maps them:
+ *  - setTolerance(tol): eps_abs = tol (fields tol_stat, tol_eq, tol_ineq) and eps_duality_gap_abs = tol (fields
+ *    tol_comp, tol_dual_gap). max_iter = 1000.
+ *  - setMaxIter(n): max_iter = n.
+ *  - setWarmStart(level): 0 is a cold start. 1 starts from the previous solution, but resets the proximal parameters
+ *    (COLD_START_WITH_PREVIOUS_RESULT). 2 (default) and 3 also keep the proximal parameters
+ *    (WARM_START_WITH_PREVIOUS_RESULT). acados never warm starts from a failed solve.
+ *  - setDenseBackend(backend): factorization of the dense backend.
  *
  * Reference:
  * Antoine Bambade, Sarah El-Kazdadi, Adrien Taylor, Justin Carpentier. PROX-QP: Yet another Quadratic Programming Solver for
  * Robotics and beyond. RSS 2022 - Robotics: Science and Systems, Jun 2022, New York, United States. ⟨hal-03683733⟩
- *
- * Parameters:
- *  - See proxsuite::proxqp::Setting in settings.h for all possible options and default values.
  */
-class ProxQPSolver : public QPSolver{
+class ProxQPSolver : public AcadosDenseQPSolver{
 private:
     static QPSolverRegistry<ProxQPSolver> reg;
 
 public:
     ProxQPSolver();
-    virtual ~ProxQPSolver() noexcept { };
 
-    /**
-     * @brief solve Solve the given quadratic program
-     * @param hierarchical_qp Description of the hierarchical quadratic program to solve. Each vector entry correspond to a stage in the hierarchy where
-     *                    the first entry has the highest priority. Currently only one priority level is implemented.
-     * @param solver_output solution of the quadratic program
-     */
-    virtual void solve(const wbc::HierarchicalQP& hierarchical_qp, Eigen::VectorXd& solver_output, bool allow_warm_start = true);
+    /** Select the factorization of the dense backend: AUTOMATIC (default), PRIMAL_DUAL_LDLT or PRIMAL_LDLT (acados
+      * option proxqp_dense_backend). Takes effect at the next call to solve(). Throws std::invalid_argument for an
+      * unknown backend. */
+    void setDenseBackend(const std::string& backend);
 
-    /** Get number of working set recalculations actually performed*/
-    int getNter(){ return _actual_n_iter; }
-
-    /** Set Solver options. Has to be called before first call to solve()!*/
-    void setOptions(proxsuite::proxqp::Settings<double> opt){settings = opt;}
-
-    /** Set eps_abs = max(1e-3*tol, 1e-12), as acados does (dense_qp_proxqp.c): the single tolerance bounds primal and dual residuals only, complementarity is controlled implicitly. Raises the iteration limit to at least 1000*/
-    virtual bool setTolerance(double tol);
+    /** Factorization of the dense backend, see setDenseBackend()*/
+    const std::string& getDenseBackend() const { return dense_backend; }
 
 protected:
+    virtual void setSolverOptions();
 
-    std::shared_ptr<proxsuite::proxqp::dense::QP<double>> _solver_ptr;
-    int _actual_n_iter;
-
-    Eigen::MatrixXd _C_mtx; // inequalities matrix (including bounds)
-    Eigen::VectorXd _l_vec; // inequalities lower bounds
-    Eigen::VectorXd _u_vec; // inequalities upper bounds
-
-    proxsuite::proxqp::Settings<double> settings;
+private:
+    std::string dense_backend = "AUTOMATIC";
 };
 
 }

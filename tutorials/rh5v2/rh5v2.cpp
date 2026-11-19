@@ -56,10 +56,7 @@ int main()
 
     // Configure solver, use QPOases
     QPSolverPtr solver = make_shared<QPOASESSolver>();
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
-    qpOASES::Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-    options.printLevel = qpOASES::PL_NONE;
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
+    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
 
     // Configure the AccelerationSceneTSID scene. This scene computes joint accelerations, joint torques and contact wrenches as output.
     // Pass two tasks here: Left arm Cartesian pose and right arm Cartesian pose.

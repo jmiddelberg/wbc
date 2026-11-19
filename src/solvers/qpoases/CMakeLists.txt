@@ -1,18 +1,19 @@
 SET(TARGET_NAME wbc-solvers-qpoases)
 
-pkg_search_module(qpOASES REQUIRED IMPORTED_TARGET qpOASES)
+# qpOASES comes with acados (qpOASES_e, ACADOS_WITH_QPOASES) and is called through its dense QP
+# interface, see ../acados_dense_qp. acados is found in ../CMakeLists.txt.
+wbc_require_acados_solver(ACADOS_WITH_QPOASES)
 
 set(SOURCES QPOasesSolver.cpp)
 set(HEADERS QPOasesSolver.hpp)
 
-list(APPEND PKGCONFIG_REQUIRES qpOASES)
-list(APPEND PKGCONFIG_REQUIRES wbc-core)
+list(APPEND PKGCONFIG_REQUIRES wbc-acados_dense_qp)
 string (REPLACE ";" " " PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES}")
 
 add_library(${TARGET_NAME} SHARED ${SOURCES} ${HEADERS})
-target_link_libraries(${TARGET_NAME} PUBLIC
-                      wbc-core
-                      PkgConfig::qpOASES)
+target_link_libraries(${TARGET_NAME}
+                      PUBLIC  wbc-acados_dense_qp
+                      PRIVATE acados)
 
 set_target_properties(${TARGET_NAME} PROPERTIES
        VERSION ${PROJECT_VERSION}

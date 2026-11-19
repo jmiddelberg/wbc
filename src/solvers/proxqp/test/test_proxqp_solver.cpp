@@ -1,298 +1,65 @@
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MAIN
 #include <boost/test/unit_test.hpp>
-#include <iostream>
-#include <sys/time.h>
-#include "../../../core/QuadraticProgram.hpp"
-#include "../ProxQPSolver.hpp"
+#include "solvers/proxqp/ProxQPSolver.hpp"
+#include "solvers/acados_dense_qp/test/DenseQPTestCases.hpp"
 
 using namespace wbc;
-using namespace std;
 
-BOOST_AUTO_TEST_CASE(solver_proxqp_without_constraints)
-{
-    srand (time(NULL));
+// ProxQP stops when the primal and dual residuals are below eps_abs, which setTolerance() sets
+static const double TOL = 1e-8;
 
-    const int NO_JOINTS = 6;
-    const int NO_EQ_CONSTRAINTS = 0;
-    const int NO_IN_CONSTRAINTS = 0;
-    const bool WITH_BOUNDS = false;
-
-    // Solve the problem min(||Ax-b||) without constraints --> encode the task as part of the cost function
-    // Standard form of QP is x^T*H*x + x^T*g --> Choose H = A^T*A and g = -(A^T*y)^T
-
-    wbc::QuadraticProgram qp;
-    qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, WITH_BOUNDS);
-
-    // Task Jacobian
-    Eigen::MatrixXd A(6,6);
-    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
-         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
-         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
-         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
-         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
-         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
-    // Desired task space reference
-    Eigen::VectorXd y(6);
-    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
-
-    qp.H = A.transpose()*A;
-    qp.g = -(A.transpose()*y).transpose();
-
-    BOOST_CHECK(qp.isValid());
-    wbc::HierarchicalQP hqp;
-    hqp << qp;
-
-    ProxQPSolver solver;
-    proxsuite::proxqp::Settings<double> options;
-    options.eps_abs = 1e-9;
-    solver.setOptions(options);
-
-    Eigen::VectorXd solver_output;
-
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-
-    BOOST_CHECK_NO_THROW(solver.solve(hqp, solver_output));
-    gettimeofday(&end, NULL);
-
-    Eigen::VectorXd test = A*solver_output;
-    //cout<<"Test: A * q_dot = "<<test.transpose();
-    for(uint j = 0; j < NO_JOINTS; j++)
-        BOOST_CHECK(fabs(test(j) - y(j)) < 1e-9);
-
-    //cout<<"\n............................."<<endl;
+static std::unique_ptr<AcadosDenseQPSolver> makeSolver(){
+    std::unique_ptr<AcadosDenseQPSolver> solver(new ProxQPSolver());
+    solver->setTolerance(1e-9);
+    return solver;
 }
 
-BOOST_AUTO_TEST_CASE(solver_proxqp_with_equality_constraints)
+WBC_DENSE_QP_TEST_CASES(solver_proxqp, makeSolver, TOL)
+
+BOOST_AUTO_TEST_CASE(solver_proxqp_options)
 {
-    srand (time(NULL));
-
-    const int NO_JOINTS = 6;
-    const int NO_EQ_CONSTRAINTS = 6;
-    const int NO_IN_CONSTRAINTS = 0;
-    const bool WITH_BOUNDS = false;
-
-    // Solve the problem min(||x||), subject Ax=b --> encode the task as constraint
-    // Standard form of QP is x^T*H*x + x^T*g --> Choose H = I  and g = 0
-
-    wbc::QuadraticProgram qp;
-    qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, WITH_BOUNDS);
-
-    qp.g.setZero();
-    qp.H.setIdentity();
-    // Task Jacobian
-    Eigen::MatrixXd A(6,6);
-    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
-         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
-         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
-         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
-         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
-         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
-    qp.A = A;
-    // Desired task space reference
-    Eigen::VectorXd y(6);
-    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
-    qp.b = y;
-
-    BOOST_CHECK(qp.isValid());
-    wbc::HierarchicalQP hqp;
-    hqp << qp;
-
-    ProxQPSolver solver;
-    proxsuite::proxqp::Settings<double> options;
-    options.eps_abs = 1e-9;
-    solver.setOptions(options);
-
-    Eigen::VectorXd solver_output;
-
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-    BOOST_CHECK_NO_THROW(solver.solve(hqp, solver_output));
-    gettimeofday(&end, NULL);
-    //long useconds = end.tv_usec - start.tv_usec;
-
-    Eigen::VectorXd test = A*solver_output;
-    //cout<<"Test: A * q_dot = "<<test.transpose();
-    for(uint j = 0; j < NO_EQ_CONSTRAINTS; j++)
-        BOOST_CHECK(fabs(test(j) - y(j)) < 1e-9);
-
-    //cout<<"\n............................."<<endl;
+    dense_qp_test::commonOptions([](){ return std::unique_ptr<AcadosDenseQPSolver>(new ProxQPSolver()); }, 2, 3);
 }
 
-BOOST_AUTO_TEST_CASE(solver_proxqp_with_inequality_constraints)
+BOOST_AUTO_TEST_CASE(solver_proxqp_dense_backends)
 {
-    srand (time(NULL));
-
-    const int NO_JOINTS = 6;
-    const int NO_EQ_CONSTRAINTS = 0;
-    const int NO_IN_CONSTRAINTS = 6;
-    const bool WITH_BOUNDS = false;
-
-    // Solve the problem min(||x||), subject Ax=b --> encode the task as constraint
-    // Standard form of QP is x^T*H*x + x^T*g --> Choose H = I  and g = 0
-
+    // Every backend has to give the same solution. The constraints are built around a feasible
+    // point, the cost pulls the solution away from it, so some constraints are active.
     wbc::QuadraticProgram qp;
-    qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, WITH_BOUNDS);
-
-    qp.g.setZero();
-    qp.H.setIdentity();
-    // Task Jacobian
-    Eigen::MatrixXd A(6,6);
-    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
-         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
-         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
-         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
-         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
-         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
+    qp.resize(6, 2, 6, true);
+    Eigen::MatrixXd A = dense_qp_test::taskJacobian();
+    Eigen::VectorXd y = dense_qp_test::taskReference();
+    const Eigen::VectorXd x_feasible = Eigen::VectorXd::Constant(6, 0.1);
+    qp.H = A.transpose()*A + 1e-6*Eigen::MatrixXd::Identity(6,6);
+    qp.g = -(A.transpose()*(2*y));
+    qp.A = A.topRows(2);
+    qp.b = qp.A*x_feasible;
     qp.C = A;
-    // Desired task space reference
-    Eigen::VectorXd y(6);
-    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
-    qp.lower_y = y - Eigen::VectorXd::Constant(qp.nq, 1e-1);
-    qp.upper_y = y + Eigen::VectorXd::Constant(qp.nq, 1e-1);
-
-    BOOST_CHECK(qp.isValid());
-    wbc::HierarchicalQP hqp;
-    hqp << qp;
+    qp.lower_y.setConstant(-wbc::INF);
+    qp.upper_y = A*x_feasible + Eigen::VectorXd::Constant(6, 0.05);
+    qp.lower_x.setConstant(-0.4);
+    qp.upper_x.setConstant(+0.4);
 
     ProxQPSolver solver;
-    proxsuite::proxqp::Settings<double> options;
-    options.eps_abs = 1e-9;
-    solver.setOptions(options);
+    solver.setTolerance(1e-9);
+    BOOST_CHECK_EQUAL(solver.getDenseBackend(), "AUTOMATIC");
+    Eigen::VectorXd x_automatic;
+    dense_qp_test::solve(solver, qp, x_automatic);
 
-    Eigen::VectorXd solver_output;
+    for(const std::string backend : {"PRIMAL_DUAL_LDLT", "PRIMAL_LDLT", "AUTOMATIC"}){
+        // a change after the first solve takes effect at the next solve
+        BOOST_CHECK_NO_THROW(solver.setDenseBackend(backend));
+        Eigen::VectorXd x;
+        if(dense_qp_test::solve(solver, qp, x))
+            BOOST_CHECK_MESSAGE((x - x_automatic).cwiseAbs().maxCoeff() < 1e-6, backend << ": solution differs by " << (x - x_automatic).cwiseAbs().maxCoeff());
+    }
 
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-    BOOST_CHECK_NO_THROW(solver.solve(hqp, solver_output));
-    gettimeofday(&end, NULL);
-    //long useconds = end.tv_usec - start.tv_usec;
-
-    Eigen::VectorXd test = A*solver_output;
-
-    for(uint j = 0; j < NO_JOINTS; ++j)
-        BOOST_CHECK((qp.lower_y(j)-1e-9) <= test(j) && test(j) <= (qp.upper_y(j)+1e-9));
+    BOOST_CHECK_THROW(solver.setDenseBackend("SPARSE"), std::invalid_argument);
 }
 
-BOOST_AUTO_TEST_CASE(solver_proxqp_bounded)
+BOOST_AUTO_TEST_CASE(solver_proxqp_plugin_name)
 {
-    srand (time(NULL));
-
-    const int NO_JOINTS = 6;
-    const int NO_EQ_CONSTRAINTS = 0;
-    const int NO_IN_CONSTRAINTS = 0;
-    const bool WITH_BOUNDS = true;
-
-    // Solve the problem min(||Ax-b||) with bound constraints --> encode the task as part of the cost function
-    // Standard form of QP is x^T*H*x + x^T*g --> Choose H = A^T*A and g = -(A^T*y)^T
-
-    wbc::QuadraticProgram qp;
-    qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, WITH_BOUNDS);
-
-    // Task Jacobian
-    Eigen::MatrixXd A(6,6);
-    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
-         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
-         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
-         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
-         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
-         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
-    // Desired task space reference
-    Eigen::VectorXd y(6);
-    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
-
-    qp.H = A.transpose()*A;
-    qp.g = -(A.transpose()*y).transpose();
-
-    qp.lower_x.setConstant(-1e10);
-    qp.upper_x.setConstant(+1e10);
-
-    BOOST_CHECK(qp.isValid());
-    wbc::HierarchicalQP hqp;
-    hqp << qp;
-
-    ProxQPSolver solver;
-    proxsuite::proxqp::Settings<double> options;
-    options.eps_abs = 1e-9;
-    solver.setOptions(options);
-
-    Eigen::VectorXd solver_output;
-
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-
-    BOOST_CHECK_NO_THROW(solver.solve(hqp, solver_output));
-    gettimeofday(&end, NULL);
-
-    for(uint j = 0; j < NO_JOINTS; ++j)
-        BOOST_CHECK((qp.lower_x(j)-1e-9) <= solver_output(j) && solver_output(j) <= (qp.upper_x(j)+1e-9));
-
-}
-
-BOOST_AUTO_TEST_CASE(solver_proxqp_unbounded_constraints)
-{
-    // Bounds marked with wbc::INF are absent. The wrapper has to hand that to the solver in the way
-    // the solver expects, and doing so must not change the solution: solving the same problem with
-    // bounds that are finite but far too wide to ever become active has to give the same answer.
-    const int NO_JOINTS = 6;
-    const int NO_EQ_CONSTRAINTS = 2;
-    const int NO_IN_CONSTRAINTS = 6;
-
-    Eigen::MatrixXd A(6,6);
-    A << 0.642, 0.706, 0.565,  0.48,  0.59, 0.917,
-         0.553, 0.087,  0.43,  0.71, 0.148,  0.87,
-         0.249, 0.632, 0.711,  0.13, 0.426, 0.963,
-         0.682, 0.123, 0.998, 0.716, 0.961, 0.901,
-         0.891, 0.019, 0.716, 0.534, 0.725, 0.633,
-         0.315, 0.551, 0.462, 0.221, 0.638, 0.244;
-    Eigen::VectorXd y(6);
-    y << 0.833, 0.096, 0.078, 0.971, 0.883, 0.366;
-
-    // no_bound is either wbc::INF or a finite value that is far outside the feasible region
-    auto makeQP = [&](double no_bound){
-        wbc::QuadraticProgram qp;
-        qp.resize(NO_JOINTS, NO_EQ_CONSTRAINTS, NO_IN_CONSTRAINTS, true);
-        qp.H = A.transpose()*A;
-        qp.H.diagonal().array() += 1e-6;
-        qp.g = -(A.transpose()*y).transpose();
-        qp.A = A.topRows(NO_EQ_CONSTRAINTS);
-        qp.b = y.head(NO_EQ_CONSTRAINTS);
-        qp.C = A;
-        // one-sided inequalities: no lower bound, upper bound partly active
-        qp.lower_y.setConstant(-no_bound);
-        qp.upper_y = y + Eigen::VectorXd::Constant(NO_IN_CONSTRAINTS, 1e-1);
-        // three free variables, three that are really bounded
-        qp.lower_x.setConstant(-no_bound);
-        qp.upper_x.setConstant(+no_bound);
-        qp.lower_x.tail(3).setConstant(-0.4);
-        qp.upper_x.tail(3).setConstant(+0.4);
-        return qp;
-    };
-
-    wbc::QuadraticProgram qp_inf = makeQP(wbc::INF);
-    wbc::QuadraticProgram qp_wide = makeQP(1e3);
-    BOOST_CHECK(qp_inf.isValid());
-
-    wbc::HierarchicalQP hqp_inf, hqp_wide;
-    hqp_inf << qp_inf;
-    hqp_wide << qp_wide;
-
-    Eigen::VectorXd out_inf, out_wide;
-    ProxQPSolver solver_inf, solver_wide;
-    BOOST_CHECK_NO_THROW(solver_inf.solve(hqp_inf, out_inf));
-    BOOST_CHECK_NO_THROW(solver_wide.solve(hqp_wide, out_wide));
-
-    BOOST_CHECK_EQUAL(out_inf.size(), NO_JOINTS);
-    for(uint j = 0; j < NO_JOINTS; ++j)
-        BOOST_CHECK_SMALL(out_inf(j) - out_wide(j), 1e-4);
-
-    // the bounds that are not marked as absent must still be enforced ...
-    for(uint j = 3; j < NO_JOINTS; ++j)
-        BOOST_CHECK((qp_inf.lower_x(j)-1e-4) <= out_inf(j) && out_inf(j) <= (qp_inf.upper_x(j)+1e-4));
-    // ... and at least one of them has to be active, otherwise dropping every bound would pass too
-    BOOST_CHECK(out_inf.tail(3).cwiseAbs().maxCoeff() > 0.4 - 1e-3);
-
-    // the equality constraints are never affected by the substitution
-    BOOST_CHECK_SMALL((qp_inf.A*out_inf - qp_inf.b).cwiseAbs().maxCoeff(), 1e-4);
+    std::unique_ptr<QPSolver> solver(QPSolverFactory::createInstance("proxqp"));
+    BOOST_CHECK(dynamic_cast<ProxQPSolver*>(solver.get()) != nullptr);
 }

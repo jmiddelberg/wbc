@@ -8,7 +8,6 @@
 
 using namespace wbc;
 using namespace std;
-using namespace qpOASES;
 using namespace wbc;
 
 /**
@@ -58,10 +57,7 @@ int main(){
 
     // Configure solver, use QPOASES in this case
     QPSolverPtr solver = make_shared<QPOASESSolver>();
-    Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-    options.printLevel = PL_NONE;
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
+    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
 
     // Configure Scene, use VelocitySceneQuadraticCost in this case
     SpatialVelocityTaskPtr cart_task;

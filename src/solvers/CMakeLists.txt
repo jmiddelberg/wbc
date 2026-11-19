@@ -1,3 +1,18 @@
+# DAQP, ProxQP and qpOASES are called through the dense QP interface of acados, HPIPM as well. qpOASES
+# is always built, so wbc needs acados. acados installs a CMake package to <prefix>/cmake, which
+# find_package finds for a prefix like /opt/acados. Otherwise pass -Dacados_DIR=<prefix>/cmake.
+find_package(acados REQUIRED)
+
+# acados terminates the process at runtime (dense_qp_config_create) if it was built without the
+# solver that is requested, so this is checked when wbc is configured
+function(wbc_require_acados_solver option)
+    if(NOT ${option})
+        message(FATAL_ERROR "acados (${acados_DIR}) was built without ${option}. Build acados with "
+                            "-D${option}=ON, or switch the corresponding wbc solver off.")
+    endif()
+endfunction()
+
+add_subdirectory(acados_dense_qp)
 add_subdirectory(qpoases)
 if(SOLVER_EIQUADPROG)
     add_subdirectory(eiquadprog)

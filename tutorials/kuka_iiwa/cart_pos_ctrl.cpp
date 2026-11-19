@@ -55,11 +55,7 @@ int main(){
     // level. However, prioritization can be achieved through the task weights. Also, it allows hard joint constraints,
     // like e.g., joint velocity limits.
     QPSolverPtr solver = std::make_shared<QPOASESSolver>();
-    qpOASES::Options options;
-    options.setToDefault();
-    options.printLevel = qpOASES::PL_NONE;
-    std::dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
-    std::dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(100);
+    std::dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(100);
 
     // Configure WBC Scene. Use the Scene VelocitySceneQuadraticCost here. This scene implements tasks as part of the cost function
     // of the QP and defines the maximum joint velocities (taken from the URDF) as hard inequality constraints. The solution will

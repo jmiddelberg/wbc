@@ -5,7 +5,6 @@ find_package(acados REQUIRED)
 set(SOURCES HPIPMSolver.cpp)
 set(HEADERS HPIPMSolver.hpp)
 
-list(APPEND PKGCONFIG_REQUIRES qpOASES)
 list(APPEND PKGCONFIG_REQUIRES wbc-core)
 string (REPLACE ";" " " PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES}")
 

@@ -9,7 +9,6 @@
 
 using namespace wbc;
 using namespace std;
-using namespace qpOASES;
 
 /**
  * Velocity-based example, exact same problem as in the rh5_single_leg example. The only difference is that here we use the hybrid robot model, i.e. we
@@ -39,10 +38,7 @@ int main(){
 
     // Configure solver, use QPOASES in this case
     QPSolverPtr solver = make_shared<QPOASESSolver>();
-    Options options = dynamic_pointer_cast<QPOASESSolver>(solver)->getOptions();
-    options.printLevel = PL_NONE;
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setOptions(options);
-    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxNoWSR(1000);
+    dynamic_pointer_cast<QPOASESSolver>(solver)->setMaxIter(1000);
 
     // Configure Scene, use VelocitySceneQuadraticCost in this case
     SpatialVelocityTaskPtr cart_task = std::make_shared<SpatialVelocityTask>(TaskConfig("left_leg_posture",0,Eigen::VectorXd::Ones(6),1),
